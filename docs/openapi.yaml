@@ -1,0 +1,765 @@
+openapi: 3.1.0
+info:
+  title: SII ITC Web API
+  version: 0.1.0
+  description: |
+    API de backend para la aplicación SII ITC Web. El backend consume la API
+    institucional del SII; el frontend no debe llamarla directamente. La
+    autenticación y los datos académicos oficiales siguen siendo responsabilidad
+    del SII ITC. El Organizador Académico es una función propia y sus actividades
+    se almacenan en Supabase PostgreSQL.
+
+    Los esquemas de las respuestas exitosas del SII se basan en respuestas reales
+    observadas. El backend devuelve esos datos institucionales sin persistirlos
+    ni cambiar sus nombres o tipos de campo. Los formatos de error del SII no se
+    han observado; este contrato define las respuestas de error propias del backend.
+
+    Las funciones deben permitir que el JWT institucional llegue al código de la
+    Edge Function; allí se valida consultando un endpoint protegido del SII. No
+    se debe aplicar la verificación JWT predeterminada de Supabase a este token,
+    porque no fue emitido por Supabase Auth.
+servers:
+  - url: https://afqhibdyrfrugvmogplt.supabase.co/functions/v1
+    description: Supabase Edge Functions del proyecto de desarrollo
+
+tags:
+  - name: Autenticación
+  - name: Información académica
+  - name: Organizador académico
+
+paths:
+  /auth-login:
+    post:
+      tags: [Autenticación]
+      operationId: login
+      summary: Iniciar sesión mediante el SII ITC
+      description: |
+        Reenvía las credenciales al endpoint institucional POST /api/login.
+        Devuelve la estructura de respuesta del SII, incluido el JWT en
+        message.login.token. El frontend usará ese valor como Bearer token en
+        las peticiones al backend. No crea una cuenta ni contraseña en Supabase Auth.
+      security:
+        - supabaseApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación institucional exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                ejemplo:
+                  summary: Respuesta de login con token ficticio
+                  value:
+                    responseCodeTxt: 200 OK
+                    message:
+                      login:
+                        token: '<JWT_FICTICIO>'
+                    status: 200
+                    flag: success
+                    data: 200
+                    type: estudiante
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /student-profile:
+    get:
+      tags: [Información académica]
+      operationId: getStudentProfile
+      summary: Consultar el perfil del estudiante
+      description: |
+        Consulta GET /api/movil/estudiante en el SII usando el JWT institucional.
+        La respuesta exitosa del SII también se usa para confirmar que el token
+        es aceptado y obtener la identidad institucional estable del estudiante
+        desde data.numero_control. No se debe confiar en claims decodificados
+        localmente ni en un student_id proporcionado por el cliente.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Perfil devuelto por el SII ITC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfileResponse'
+              examples:
+                ejemplo:
+                  summary: Perfil sintético sin datos personales ni imagen
+                  value:
+                    code: 200
+                    message: Perfil del estudiante
+                    flag: true
+                    data:
+                      numero_control: '00000000'
+                      persona: Estudiante de ejemplo
+                      email: estudiante@example.edu
+                      semestre: 4
+                      num_mat_rep_no_acreditadas: '0'
+                      creditos_acumulados: '120'
+                      promedio_ponderado: '90.000'
+                      promedio_aritmetico: '89.500'
+                      materias_cursadas: '25'
+                      materias_reprobadas: '0'
+                      materias_aprobadas: '25'
+                      creditos_complementarios: 0
+                      porcentaje_avance: 50
+                      num_materias_rep_primera: null
+                      num_materias_rep_segunda: null
+                      percentaje_avance_cursando: 50
+                      foto: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /student-grades:
+    get:
+      tags: [Información académica]
+      operationId: getStudentGrades
+      summary: Consultar calificaciones actuales
+      description: Proxy de GET /api/movil/estudiante/calificaciones del SII ITC.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Calificaciones devueltas por el SII ITC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradesResponse'
+              examples:
+                ejemplo:
+                  summary: Calificaciones sintéticas de un periodo
+                  value:
+                    code: 200
+                    message: Calificaciones del alumno en este periodo
+                    flag: true
+                    data:
+                      - periodo:
+                          clave_periodo: 26/2
+                          anio: 2026
+                          descripcion_periodo: Agosto - Diciembre 2026
+                        materias:
+                          - materia:
+                              id_grupo: 10001
+                              nombre_materia: Desarrollo Web
+                              clave_materia: DWB-1001
+                              letra_grupo: A
+                            calificaiones:
+                              - id_calificacion: 20001
+                                numero_calificacion: 1
+                                calificacion: '92'
+                              - id_calificacion: 20002
+                                numero_calificacion: 2
+                                calificacion: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /student-kardex:
+    get:
+      tags: [Información académica]
+      operationId: getStudentKardex
+      summary: Consultar el historial académico
+      description: Proxy de GET /api/movil/estudiante/kardex del SII ITC.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Historial académico devuelto por el SII ITC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KardexResponse'
+              examples:
+                ejemplo:
+                  summary: Extracto sintético de kardex
+                  value:
+                    code: 200
+                    message: Kardex del alumno
+                    flag: true
+                    data:
+                      porcentaje_avance: 50.0
+                      kardex:
+                        - nombre_materia: Fundamentos de Programación
+                          clave_materia: FPR-1001
+                          periodo: 25/1
+                          creditos: '5'
+                          calificacion: '95'
+                          descripcion: NORMAL / ORDINARIO
+                          semestre: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /student-schedule:
+    get:
+      tags: [Información académica]
+      operationId: getStudentSchedule
+      summary: Consultar el horario del semestre actual
+      description: Proxy de GET /api/movil/estudiante/horarios del SII ITC.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Horario devuelto por el SII ITC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+              examples:
+                ejemplo:
+                  summary: Horario sintético de un periodo
+                  value:
+                    code: 200
+                    message: Horario del alumno en este periodo
+                    flag: true
+                    data:
+                      - periodo:
+                          clave_periodo: 26/2
+                          anio: 2026
+                          descripcion_periodo: Agosto - Diciembre 2026
+                        horario:
+                          - id_grupo: 10001
+                            letra_grupo: A
+                            nombre_materia: Desarrollo Web
+                            clave_materia: DWB-1001
+                            clave_turno: C.Celaya
+                            nombre_plan: Ingeniería de ejemplo
+                            letra_nivel: L
+                            lunes: 09:00-11:00
+                            lunes_clave_salon: A1
+                            martes: null
+                            martes_clave_salon: null
+                            miercoles: 09:00-11:00
+                            miercoles_clave_salon: A1
+                            jueves: null
+                            jueves_clave_salon: null
+                            viernes: null
+                            viernes_clave_salon: null
+                            sabado: null
+                            sabado_clave_salon: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /organizador-api/activities:
+    get:
+      tags: [Organizador académico]
+      operationId: listActivities
+      summary: Listar actividades del estudiante autenticado
+      description: |
+        Valida el JWT con una solicitud protegida al SII y obtiene de
+        data.numero_control la identidad estable del estudiante. La consulta se
+        limita a ese propietario; el cliente nunca envía student_id. El frontend
+        puede calcular el resumen inicial a partir de la lista devuelta.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      parameters:
+        - name: subject
+          in: query
+          description: Filtrar por materia (coincidencia parcial, sin distinguir mayúsculas)
+          required: false
+          schema: { type: string, maxLength: 200 }
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ActivityStatus' }
+        - name: priority
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ActivityPriority' }
+        - name: activity_type
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ActivityType' }
+        - name: search
+          in: query
+          description: Buscar en título, descripción y materia
+          required: false
+          schema: { type: string, maxLength: 200 }
+        - name: due_from
+          in: query
+          description: Límite inferior inclusivo de fecha/hora, RFC 3339
+          required: false
+          schema: { type: string, format: date-time }
+        - name: due_to
+          in: query
+          description: Límite superior inclusivo de fecha/hora, RFC 3339
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Actividades del estudiante autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Activity' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+    post:
+      tags: [Organizador académico]
+      operationId: createActivity
+      summary: Crear una actividad
+      description: El backend asigna el propietario a partir de la identidad validada con el SII ITC.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivityCreate' }
+      responses:
+        '201':
+          description: Actividad creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Activity' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /organizador-api/activities/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: UUID de la actividad
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Organizador académico]
+      operationId: getActivity
+      summary: Consultar una actividad propia
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Actividad encontrada y propiedad del estudiante autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Activity' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+    patch:
+      tags: [Organizador académico]
+      operationId: updateActivity
+      summary: Modificar una actividad propia
+      description: Permite actualizar campos y cambiar el estado a completada.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivityUpdate' }
+      responses:
+        '200':
+          description: Actividad actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Activity' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+    delete:
+      tags: [Organizador académico]
+      operationId: deleteActivity
+      summary: Eliminar una actividad propia
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '204':
+          description: Actividad eliminada
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+components:
+  securitySchemes:
+    supabaseApiKey:
+      type: apiKey
+      in: header
+      name: apikey
+      description: Clave publicable del proyecto Supabase para identificar el proyecto al invocar Edge Functions.
+    institutionalBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT emitido por el endpoint de login del SII ITC. Para endpoints del
+        organizador, el backend debe comprobar su aceptación mediante una
+        solicitud protegida al SII y obtener data.numero_control. No debe
+        confiar únicamente en decodificar el token ni aceptar una identidad
+        enviada por el cliente.
+
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1, writeOnly: true }
+
+    LoginResponse:
+      type: object
+      required: [responseCodeTxt, message, status, flag, data, type]
+      properties:
+        responseCodeTxt: { type: string, examples: ['200 OK'] }
+        message:
+          type: object
+          required: [login]
+          properties:
+            login:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: JWT institucional; enviarlo como Authorization Bearer en llamadas protegidas.
+        status: { type: integer, examples: [200] }
+        flag: { type: string, examples: [success] }
+        data: { type: integer, examples: [200] }
+        type: { type: string, description: Tipo de cuenta institucional, por ejemplo estudiante. }
+
+    StudentProfileResponse:
+      description: Respuesta del perfil. La foto puede ser una cadena Base64 extensa.
+      type: object
+      required: [code, message, flag, data]
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        flag: { type: boolean }
+        data: { $ref: '#/components/schemas/StudentProfile' }
+
+    StudentProfile:
+      type: object
+      required: [numero_control, persona, email, semestre, foto]
+      properties:
+        numero_control: { type: string }
+        persona: { type: string }
+        email: { type: string, format: email }
+        semestre: { type: integer }
+        num_mat_rep_no_acreditadas: { type: string }
+        creditos_acumulados: { type: string }
+        promedio_ponderado: { type: string }
+        promedio_aritmetico: { type: string }
+        materias_cursadas: { type: string }
+        materias_reprobadas: { type: string }
+        materias_aprobadas: { type: string }
+        creditos_complementarios: { type: integer }
+        porcentaje_avance: { type: number }
+        num_materias_rep_primera: { type: [integer, 'null'] }
+        num_materias_rep_segunda: { type: [integer, 'null'] }
+        percentaje_avance_cursando: { type: number, description: Nombre del campo tal como lo envía el SII (sic). }
+        foto:
+          type: [string, 'null']
+          contentEncoding: base64
+          contentMediaType: image/jpeg
+          description: Imagen JPEG codificada en Base64, según la respuesta observada.
+
+    GradesResponse:
+      type: object
+      required: [code, message, flag, data]
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        flag: { type: boolean }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/GradesPeriod' }
+
+    GradesPeriod:
+      type: object
+      required: [periodo, materias]
+      properties:
+        periodo: { $ref: '#/components/schemas/AcademicPeriod' }
+        materias:
+          type: array
+          items: { $ref: '#/components/schemas/SubjectGrades' }
+
+    AcademicPeriod:
+      type: object
+      required: [clave_periodo, anio, descripcion_periodo]
+      properties:
+        clave_periodo: { type: string }
+        anio: { type: integer }
+        descripcion_periodo: { type: string }
+
+    SubjectGrades:
+      type: object
+      required: [materia, calificaiones]
+      properties:
+        materia:
+          type: object
+          required: [id_grupo, nombre_materia, clave_materia, letra_grupo]
+          properties:
+            id_grupo: { type: integer }
+            nombre_materia: { type: string }
+            clave_materia: { type: string }
+            letra_grupo: { type: string }
+        calificaiones:
+          type: array
+          description: Nombre de campo tal como lo envía el SII (sic).
+          items: { $ref: '#/components/schemas/GradeEntry' }
+
+    GradeEntry:
+      type: object
+      required: [id_calificacion, numero_calificacion, calificacion]
+      properties:
+        id_calificacion: { type: integer }
+        numero_calificacion: { type: integer }
+        calificacion: { type: [string, 'null'] }
+
+    KardexResponse:
+      type: object
+      required: [code, message, flag, data]
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        flag: { type: boolean }
+        data:
+          type: object
+          required: [porcentaje_avance, kardex]
+          properties:
+            porcentaje_avance: { type: number }
+            kardex:
+              type: array
+              items: { $ref: '#/components/schemas/KardexEntry' }
+
+    KardexEntry:
+      type: object
+      required: [nombre_materia, clave_materia, periodo, creditos, calificacion, descripcion, semestre]
+      properties:
+        nombre_materia: { type: string }
+        clave_materia: { type: string }
+        periodo: { type: string }
+        creditos: { type: string }
+        calificacion:
+          type: string
+          description: Puede ser numérica en texto o una clave, por ejemplo AC.
+        descripcion: { type: string }
+        semestre: { type: integer }
+
+    ScheduleResponse:
+      type: object
+      required: [code, message, flag, data]
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        flag: { type: boolean }
+        data:
+          type: array
+          items:
+            type: object
+            required: [periodo, horario]
+            properties:
+              periodo: { $ref: '#/components/schemas/AcademicPeriod' }
+              horario:
+                type: array
+                items: { $ref: '#/components/schemas/ScheduleEntry' }
+
+    ScheduleEntry:
+      type: object
+      required: [id_grupo, letra_grupo, nombre_materia, clave_materia, clave_turno, nombre_plan, letra_nivel]
+      properties:
+        id_grupo: { type: integer }
+        letra_grupo: { type: string }
+        nombre_materia: { type: string }
+        clave_materia: { type: string }
+        clave_turno: { type: string }
+        nombre_plan: { type: string }
+        letra_nivel: { type: string }
+        lunes: { type: [string, 'null'], description: Horario en formato HH:MM-HH:MM o null. }
+        lunes_clave_salon: { type: [string, 'null'] }
+        martes: { type: [string, 'null'] }
+        martes_clave_salon: { type: [string, 'null'] }
+        miercoles: { type: [string, 'null'] }
+        miercoles_clave_salon: { type: [string, 'null'] }
+        jueves: { type: [string, 'null'] }
+        jueves_clave_salon: { type: [string, 'null'] }
+        viernes: { type: [string, 'null'] }
+        viernes_clave_salon: { type: [string, 'null'] }
+        sabado: { type: [string, 'null'] }
+        sabado_clave_salon: { type: [string, 'null'] }
+
+    ActivityType:
+      type: string
+      enum: [tarea, proyecto, examen, otro]
+    ActivityPriority:
+      type: string
+      enum: [baja, media, alta]
+    ActivityStatus:
+      type: string
+      enum: [pendiente, en_progreso, completada]
+
+    ActivityCreate:
+      type: object
+      additionalProperties: false
+      required: [title, activity_type, due_date, priority, status]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 5000 }
+        subject: { type: [string, 'null'], maxLength: 200 }
+        activity_type: { $ref: '#/components/schemas/ActivityType' }
+        due_date: { type: string, format: date-time }
+        priority: { $ref: '#/components/schemas/ActivityPriority' }
+        status: { $ref: '#/components/schemas/ActivityStatus' }
+
+    ActivityUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 5000 }
+        subject: { type: [string, 'null'], maxLength: 200 }
+        activity_type: { $ref: '#/components/schemas/ActivityType' }
+        due_date: { type: string, format: date-time }
+        priority: { $ref: '#/components/schemas/ActivityPriority' }
+        status: { $ref: '#/components/schemas/ActivityStatus' }
+
+    Activity:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - activity_type
+        - due_date
+        - priority
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        subject: { type: [string, 'null'] }
+        activity_type: { $ref: '#/components/schemas/ActivityType' }
+        due_date: { type: string, format: date-time }
+        priority: { $ref: '#/components/schemas/ActivityPriority' }
+        status: { $ref: '#/components/schemas/ActivityStatus' }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+
+  responses:
+    BadRequest:
+      description: Solicitud malformada o parámetros incompatibles
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Credenciales inválidas, JWT ausente, expirado o rechazado por el SII
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: El recurso no existe o no pertenece al estudiante autenticado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Uno o más campos no cumplen las reglas de validación
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalError:
+      description: Error interno al procesar la solicitud o acceder a Supabase PostgreSQL
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UpstreamError:
+      description: Error o indisponibilidad de un servicio institucional
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
