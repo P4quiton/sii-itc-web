@@ -1,10 +1,7 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './routes/ProtectedRoute'
 import MainLayout from './components/layout/MainLayout'
-
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Calificaciones from './pages/Calificaciones'
@@ -18,6 +15,12 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+
+          {import.meta.env.DEV && (
+            <Route element={<MainLayout />}>
+              <Route path="/preview/dashboard" element={<Dashboard />} />
+            </Route>
+          )}
 
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>
