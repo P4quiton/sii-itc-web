@@ -1,32 +1,54 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-// Setup type definitions for built-in Supabase Runtime APIs
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
+import { authenticateStudent } from "../_shared/auth.ts";
+import { ApiError } from "../_shared/errors.ts";
+import { errorResponse } from "../_shared/response.ts";
+import {
+  createActivity,
+  deleteActivity,
+  getActivity,
+  listActivities,
+  updateActivity,
+} from "./activities.ts";
+import { getSummary } from "./summary.ts";
+import { resolveRoute } from "./validation.ts";
 
-console.log("Hello from Functions!");
-
-// This endpoint uses auth 'none', no credentials required, every request is accepted.
-// Use it for health checks, public APIs, or when you need to implement your own auth logic.
 export default {
-  fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
-    const { name } = await req.json();
+  fetch: withSupabase({ auth: "none" }, async (request, ctx) => {
+    try {
+      const route = resolveRoute(request);
+      const { studentId } = await authenticateStudent(request);
+      // El cliente admin omite RLS; las consultas filtran por esta identidad verificada.
+      const db = ctx.supabaseAdmin;
+      const url = new URL(request.url);
 
-    return Response.json({
-      message: `Hello ${name}!`,
-    });
+      switch (route.kind) {
+        case "summary":
+          return await getSummary(db, studentId);
+        case "list":
+          return await listActivities(db, studentId, url);
+        case "create":
+          return await createActivity(db, studentId, request);
+        case "item":
+          if (request.method === "GET") {
+            return await getActivity(db, studentId, route.id);
+          }
+          if (request.method === "PATCH") {
+            return await updateActivity(db, studentId, route.id, request);
+          }
+          if (request.method === "DELETE") {
+            return await deleteActivity(db, studentId, route.id);
+          }
+          throw new ApiError(
+            405,
+            "METHOD_NOT_ALLOWED",
+            "El método HTTP no está permitido para esta ruta.",
+          );
+      }
+
+      throw new ApiError(500, "INTERNAL_ERROR", "No se pudo resolver la operación.");
+    } catch (error) {
+      return errorResponse(error);
+    }
   }),
 };
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/organizador-api' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
