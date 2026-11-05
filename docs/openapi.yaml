@@ -21,6 +21,21 @@ info:
     verificación JWT de Supabase no aplica al token emitido por el SII. Durante
     la migración, este contrato debe desplegarse con backend y frontend
     compatibles; el flujo Bearer actual sigue vigente hasta el corte coordinado.
+
+    El navegador se conecta al mismo origen Vercel. El proxy lógico es
+    /api/{path} -> https://afqhibdyrfrugvmogplt.supabase.co/functions/v1/{path};
+    por ejemplo /api/organizador-api/activities/{id} se reenvía a
+    /functions/v1/organizador-api/activities/{id}. El rewrite de API debe tener
+    precedencia sobre el fallback SPA de React Router. React envía la clave
+    publicable en apikey (es pública y no sustituye credenciales privilegiadas);
+    el rewrite debe reenviar ese encabezado, Cookie, Origin y X-CSRF-Token.
+    Origin se valida contra la URL exacta de producción y los orígenes exactos
+    de Preview aprobados/configurados; no se permite un comodín general para
+    *.vercel.app.
+    Todas las respuestas de autenticación y datos privados deben incluir
+    Cache-Control: no-store. En Preview se debe comprobar Set-Cookie y el
+    reenvío de Cookie; no se debe asumir que el proxy los transmite hasta
+    verificarlo.
 servers:
   - url: https://sii-itc-web.vercel.app/api
     description: Proxy del mismo origen en Vercel; los Preview Deployments usan su propio dominio
@@ -61,6 +76,8 @@ paths:
           headers:
             Set-Cookie:
               $ref: '#/components/headers/SessionCookie'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SessionResponse' }
@@ -101,6 +118,9 @@ paths:
       responses:
         '200':
           description: Sesión vigente
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SessionResponse' }
@@ -122,21 +142,24 @@ paths:
       operationId: logout
       summary: Cerrar la sesión persistente
       description: |
-        Invalida la sesión en el servidor y expira la cookie. Requiere Origin
-        permitido y X-CSRF-Token válido. Es idempotente: devuelve 204 aunque la
-        cookie ya no corresponda a una sesión activa.
+        Invalida la sesión en el servidor y expira siempre la cookie. Origin
+        permitido es obligatorio. Si la cookie identifica una sesión activa,
+        también se requiere un X-CSRF-Token válido. Si la cookie falta, es
+        inválida o la sesión ya fue invalidada, no hay sesión activa que modificar:
+        se devuelve 204 y se expira la cookie sin exigir CSRF. Es idempotente.
       security:
         - sessionCookie: []
           csrfToken: []
           supabaseApiKey: []
+        - supabaseApiKey: []
       responses:
         '204':
           description: Sesión invalidada y cookie expirada
           headers:
             Set-Cookie:
               $ref: '#/components/headers/ExpiredSessionCookie'
-        '401':
-          $ref: '#/components/responses/InvalidSession'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
         '403':
           $ref: '#/components/responses/CsrfRejected'
         '405':
@@ -148,7 +171,8 @@ paths:
       operationId: getStudentProfile
       summary: Consultar el perfil del estudiante
       description: |
-        Consulta GET /api/movil/estudiante en el SII usando el JWT institucional.
+        Recupera la sesión mediante la cookie y consulta GET /api/movil/estudiante
+        en el SII usando el JWT institucional protegido en el servidor.
         La respuesta exitosa del SII también se usa para confirmar que el token
         es aceptado y obtener la identidad institucional estable del estudiante
         desde data.numero_control. No se debe confiar en claims decodificados
@@ -161,6 +185,9 @@ paths:
       responses:
         '200':
           description: Perfil devuelto por el SII ITC
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -211,6 +238,9 @@ paths:
       responses:
         '200':
           description: Calificaciones devueltas por el SII ITC
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -257,6 +287,9 @@ paths:
       responses:
         '200':
           description: Historial académico devuelto por el SII ITC
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -299,6 +332,9 @@ paths:
       responses:
         '200':
           description: Horario devuelto por el SII ITC
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -350,8 +386,9 @@ paths:
       operationId: getActivitySummary
       summary: Consultar el análisis de carga y riesgo de incumplimiento
       description: |
-        Valida el JWT institucional contra el SII y calcula el análisis sobre
-        todas las actividades del estudiante autenticado, sin filtros ni
+        Recupera la sesión mediante la cookie y valida el JWT institucional
+        contra el SII antes de calcular el análisis sobre todas las actividades
+        del estudiante autenticado, sin filtros ni
         paginación. Los intervalos se calculan desde generated_at en la zona
         horaria America/Mexico_City. Las actividades completadas no se cuentan
         como vencidas ni como trabajo pendiente. Los umbrales documentados son
@@ -384,6 +421,9 @@ paths:
       responses:
         '200':
           description: Resumen y análisis calculados
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ActivitySummaryResponse' }
@@ -492,6 +532,9 @@ paths:
       responses:
         '200':
           description: Actividades del estudiante autenticado
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ActivityListResponse' }
@@ -523,6 +566,9 @@ paths:
       responses:
         '201':
           description: Actividad creada
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -560,6 +606,9 @@ paths:
       responses:
         '200':
           description: Actividad encontrada y propiedad del estudiante autenticado
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -592,6 +641,9 @@ paths:
       responses:
         '200':
           description: Actividad actualizada
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -624,6 +676,9 @@ paths:
       responses:
         '204':
           description: Actividad eliminada
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
         '401':
           $ref: '#/components/responses/InvalidSession'
         '403':
@@ -657,6 +712,9 @@ components:
       description: Token sincronizador devuelto por auth-login/auth-session; requerido para operaciones que modifican estado.
 
   headers:
+    NoStore:
+      description: Evita almacenar en caché respuestas de autenticación o datos privados.
+      schema: { type: string, const: no-store }
     SessionCookie:
       description: |
         Cookie de sesión opaca. Atributos esperados: HttpOnly; Secure;
@@ -1090,16 +1148,25 @@ components:
   responses:
     BadRequest:
       description: Solicitud malformada o parámetros incompatibles
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     MethodNotAllowed:
       description: El método HTTP no está permitido para esta ruta
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
       description: Credenciales institucionales rechazadas; error INVALID_CREDENTIALS.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1108,31 +1175,48 @@ components:
       headers:
         Set-Cookie:
           $ref: '#/components/headers/ExpiredSessionCookie'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     CsrfRejected:
       description: Origin no permitido o token CSRF ausente/inválido; error CSRF_REJECTED.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     NotFound:
       description: El recurso no existe o no pertenece al estudiante autenticado
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     ValidationError:
       description: Uno o más campos no cumplen las reglas de validación
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     InternalError:
       description: Error interno al procesar la solicitud o acceder a Supabase PostgreSQL
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     UpstreamError:
       description: Error o indisponibilidad de un servicio institucional
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
