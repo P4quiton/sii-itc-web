@@ -282,6 +282,95 @@ paths:
         '502':
           $ref: '#/components/responses/UpstreamError'
 
+  /organizador-api/summary:
+    get:
+      tags: [Organizador académico]
+      operationId: getActivitySummary
+      summary: Consultar el análisis de carga y riesgo de incumplimiento
+      description: |
+        Valida el JWT institucional contra el SII y calcula el análisis sobre
+        todas las actividades del estudiante autenticado, sin filtros ni
+        paginación. Los intervalos se calculan desde generated_at en la zona
+        horaria America/Mexico_City. Las actividades completadas no se cuentan
+        como vencidas ni como trabajo pendiente. Los umbrales documentados son
+        configurables en el backend.
+
+        overdue cuenta due_date < generated_at. due_next_48h y due_next_7d
+        cuentan actividades abiertas con due_date > generated_at y <= al límite
+        respectivo; por ello, overdue no se suma dentro de esas dos ventanas.
+
+        La carga suma estimated_minutes conocidos de actividades no completadas
+        con due_date entre generated_at y generated_at + 7 días, inclusive. Si
+        faltan estimaciones, el cálculo se marca partial. Si hay actividades en
+        la ventana y ninguna tiene estimación, estimation_status es unavailable
+        y level es null. Si no hay actividades abiertas en la ventana, la carga
+        es complete y normal (0 minutos). Los niveles son normal <480 minutos,
+        high de 480 a 959, y critical >=960.
+
+        La concentración agrupa actividades no completadas de los próximos 7
+        días por fecha local y devuelve solo días con dos o más actividades.
+        Las fechas futuras se comparan como instantes RFC 3339; los grupos por
+        día usan America/Mexico_City. Puntaje de urgencia: vencida +100; vence en <=24 horas +80; <=48 horas
+        +60; <=7 días +30; prioridad alta +20 o media +10; estado pendiente
+        +10 o en_progreso +5. Solo se aplica el mayor bono temporal. Niveles:
+        critical >=100, high 80-99, medium 40-79, low <40. Se excluyen las
+        completadas. Se devuelven hasta 10, ordenadas por puntaje descendente,
+        vencimiento ascendente y creación ascendente.
+      security:
+        - institutionalBearer: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Resumen y análisis calculados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivitySummaryResponse' }
+              examples:
+                ejemplo:
+                  summary: Resumen sintético con estimación parcial
+                  value:
+                    data:
+                      generated_at: '2026-11-04T12:00:00-06:00'
+                      timezone: America/Mexico_City
+                      totals: { total: 5, pending: 2, in_progress: 2, completed: 1 }
+                      deadlines: { overdue: 1, due_next_48h: 2, due_next_7d: 3 }
+                      workload:
+                        window_start: '2026-11-04T12:00:00-06:00'
+                        window_end: '2026-11-11T12:00:00-06:00'
+                        estimated_minutes: 420
+                        estimated_hours: 7
+                        level: normal
+                        estimation_status: partial
+                        unestimated_activity_count: 1
+                        thresholds_minutes: { high: 480, critical: 960 }
+                        explanation: 3 actividades vencen en los próximos 7 días; se estiman 7 horas de trabajo. El cálculo es parcial porque 1 actividad no tiene tiempo estimado.
+                      deadline_clusters:
+                        - date: '2026-11-05'
+                          active_count: 2
+                          estimated_minutes: 180
+                          description: 2 actividades vencen este día; suman 3 horas estimadas.
+                      priority_activities:
+                        - id: 550e8400-e29b-41d4-a716-446655440000
+                          title: Entregar práctica de redes
+                          subject: Redes de Computadoras
+                          activity_type: tarea
+                          due_date: '2026-11-05T18:00:00-06:00'
+                          priority: alta
+                          status: pendiente
+                          estimated_minutes: 120
+                          urgency_score: 90
+                          urgency_level: high
+                          urgency_reasons:
+                            - Vence dentro de las próximas 48 horas (+60).
+                            - Prioridad alta (+20).
+                            - Estado pendiente (+10).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
   /organizador-api/activities:
     get:
       tags: [Organizador académico]
@@ -290,8 +379,8 @@ paths:
       description: |
         Valida el JWT con una solicitud protegida al SII y obtiene de
         data.numero_control la identidad estable del estudiante. La consulta se
-        limita a ese propietario; el cliente nunca envía student_id. El frontend
-        puede calcular el resumen inicial a partir de la lista devuelta.
+        limita a ese propietario; el cliente nunca envía student_id. La respuesta
+        se pagina y se ordena por due_date ascendente y created_at ascendente.
       security:
         - institutionalBearer: []
           supabaseApiKey: []
@@ -328,20 +417,26 @@ paths:
           description: Límite superior inclusivo de fecha/hora, RFC 3339
           required: false
           schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          description: Actividades por página (predeterminado 50; máximo 100)
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: offset
+          in: query
+          description: Número de actividades que se omiten
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         '200':
           description: Actividades del estudiante autenticado
           content:
             application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Activity' }
+              schema: { $ref: '#/components/schemas/ActivityListResponse' }
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -691,7 +786,7 @@ components:
     ActivityCreate:
       type: object
       additionalProperties: false
-      required: [title, activity_type, due_date, priority, status]
+      required: [title, activity_type, due_date, priority]
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: [string, 'null'], maxLength: 5000 }
@@ -699,7 +794,15 @@ components:
         activity_type: { $ref: '#/components/schemas/ActivityType' }
         due_date: { type: string, format: date-time }
         priority: { $ref: '#/components/schemas/ActivityPriority' }
-        status: { $ref: '#/components/schemas/ActivityStatus' }
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ActivityStatus'
+          default: pendiente
+          description: Si se omite, el backend asigna pendiente.
+        estimated_minutes:
+          type: [integer, 'null']
+          minimum: 1
+          description: Estimación positiva en minutos; null u omitido significa sin estimación.
 
     ActivityUpdate:
       type: object
@@ -713,10 +816,26 @@ components:
         due_date: { type: string, format: date-time }
         priority: { $ref: '#/components/schemas/ActivityPriority' }
         status: { $ref: '#/components/schemas/ActivityStatus' }
+        estimated_minutes:
+          type: [integer, 'null']
+          minimum: 1
+          description: Estimación positiva en minutos; null elimina la estimación.
 
     Activity:
       type: object
       additionalProperties: false
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        title: Entregar práctica de redes
+        description: Configurar y documentar la topología solicitada.
+        subject: Redes de Computadoras
+        activity_type: tarea
+        due_date: '2026-11-05T18:00:00-06:00'
+        priority: alta
+        status: pendiente
+        estimated_minutes: 120
+        created_at: '2026-11-01T10:30:00-06:00'
+        updated_at: '2026-11-01T10:30:00-06:00'
       required:
         - id
         - title
@@ -735,8 +854,146 @@ components:
         due_date: { type: string, format: date-time }
         priority: { $ref: '#/components/schemas/ActivityPriority' }
         status: { $ref: '#/components/schemas/ActivityStatus' }
+        estimated_minutes:
+          type: [integer, 'null']
+          minimum: 1
+          description: Estimación en minutos, o null si no se conoce.
         created_at: { type: string, format: date-time, readOnly: true }
         updated_at: { type: string, format: date-time, readOnly: true }
+
+    ActivityListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Activity' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+      example:
+        data:
+          - id: 550e8400-e29b-41d4-a716-446655440000
+            title: Entregar práctica de redes
+            description: Configurar y documentar la topología solicitada.
+            subject: Redes de Computadoras
+            activity_type: tarea
+            due_date: '2026-11-05T18:00:00-06:00'
+            priority: alta
+            status: pendiente
+            estimated_minutes: 120
+            created_at: '2026-11-01T10:30:00-06:00'
+            updated_at: '2026-11-01T10:30:00-06:00'
+        pagination: { limit: 50, offset: 0, total: 1, has_more: false }
+
+    Pagination:
+      type: object
+      additionalProperties: false
+      required: [limit, offset, total, has_more]
+      properties:
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        offset: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0, description: Total que coincide con filtros, antes de paginar. }
+        has_more: { type: boolean }
+
+    ActivitySummaryResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/ActivitySummary' }
+
+    ActivitySummary:
+      type: object
+      additionalProperties: false
+      required: [generated_at, timezone, totals, deadlines, workload, deadline_clusters, priority_activities]
+      properties:
+        generated_at: { type: string, format: date-time }
+        timezone: { type: string, const: America/Mexico_City }
+        totals:
+          type: object
+          additionalProperties: false
+          required: [total, pending, in_progress, completed]
+          properties:
+            total: { type: integer, minimum: 0 }
+            pending: { type: integer, minimum: 0 }
+            in_progress: { type: integer, minimum: 0 }
+            completed: { type: integer, minimum: 0 }
+        deadlines:
+          type: object
+          additionalProperties: false
+          required: [overdue, due_next_48h, due_next_7d]
+          properties:
+            overdue: { type: integer, minimum: 0, description: No completadas con due_date anterior a generated_at. }
+            due_next_48h: { type: integer, minimum: 0 }
+            due_next_7d: { type: integer, minimum: 0 }
+        workload: { $ref: '#/components/schemas/WorkloadAnalysis' }
+        deadline_clusters:
+          type: array
+          items: { $ref: '#/components/schemas/DeadlineCluster' }
+        priority_activities:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/PriorityActivity' }
+
+    WorkloadAnalysis:
+      type: object
+      additionalProperties: false
+      required: [window_start, window_end, estimated_minutes, estimated_hours, level, estimation_status, unestimated_activity_count, thresholds_minutes, explanation]
+      properties:
+        window_start: { type: string, format: date-time }
+        window_end: { type: string, format: date-time }
+        estimated_minutes: { type: integer, minimum: 0 }
+        estimated_hours: { type: number, minimum: 0 }
+        level:
+          oneOf:
+            - $ref: '#/components/schemas/WorkloadLevel'
+            - type: 'null'
+          description: null cuando hay actividades en ventana pero ninguna tiene estimación.
+        estimation_status:
+          type: string
+          enum: [complete, partial, unavailable]
+        unestimated_activity_count: { type: integer, minimum: 0 }
+        thresholds_minutes:
+          type: object
+          additionalProperties: false
+          required: [high, critical]
+          properties:
+            high: { type: integer, const: 480 }
+            critical: { type: integer, const: 960 }
+        explanation: { type: string }
+
+    WorkloadLevel:
+      type: string
+      enum: [normal, high, critical]
+
+    DeadlineCluster:
+      type: object
+      additionalProperties: false
+      required: [date, active_count, estimated_minutes, description]
+      properties:
+        date: { type: string, format: date }
+        active_count: { type: integer, minimum: 2 }
+        estimated_minutes: { type: integer, minimum: 0, description: Suma de estimaciones conocidas. }
+        description: { type: string }
+
+    PriorityActivity:
+      type: object
+      additionalProperties: false
+      required: [id, title, activity_type, due_date, priority, status, estimated_minutes, urgency_score, urgency_level, urgency_reasons]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        subject: { type: [string, 'null'] }
+        activity_type: { $ref: '#/components/schemas/ActivityType' }
+        due_date: { type: string, format: date-time }
+        priority: { $ref: '#/components/schemas/ActivityPriority' }
+        status: { $ref: '#/components/schemas/ActivityStatus' }
+        estimated_minutes: { type: [integer, 'null'], minimum: 1 }
+        urgency_score: { type: integer, minimum: 0 }
+        urgency_level: { type: string, enum: [low, medium, high, critical] }
+        urgency_reasons:
+          type: array
+          items: { type: string }
 
     Error:
       type: object
