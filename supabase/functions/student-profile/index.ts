@@ -5,7 +5,7 @@ import { ApiError } from "../_shared/errors.ts";
 import { errorResponse, jsonResponse } from "../_shared/response.ts";
 
 export default {
-  fetch: withSupabase({ auth: "none" }, async (req) => {
+  fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
     if (req.method !== "GET") {
       return errorResponse(
         new ApiError(405, "METHOD_NOT_ALLOWED", "Este endpoint solo acepta GET."),
@@ -13,7 +13,7 @@ export default {
     }
 
     try {
-      const { profile } = await authenticateStudent(req);
+      const { profile } = await authenticateStudent(req, ctx.supabaseAdmin);
       return jsonResponse(profile);
     } catch (error) {
       return errorResponse(error);
