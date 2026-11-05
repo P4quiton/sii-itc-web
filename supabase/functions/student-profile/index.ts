@@ -1,32 +1,22 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-// Setup type definitions for built-in Supabase Runtime APIs
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
+import { authenticateStudent } from "../_shared/auth.ts";
+import { ApiError } from "../_shared/errors.ts";
+import { errorResponse, jsonResponse } from "../_shared/response.ts";
 
-console.log("Hello from Functions!");
-
-// This endpoint uses auth 'none', no credentials required, every request is accepted.
-// Use it for health checks, public APIs, or when you need to implement your own auth logic.
 export default {
-  fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
-    const { name } = await req.json();
+  fetch: withSupabase({ auth: "none" }, async (req) => {
+    if (req.method !== "GET") {
+      return errorResponse(
+        new ApiError(405, "METHOD_NOT_ALLOWED", "Este endpoint solo acepta GET."),
+      );
+    }
 
-    return Response.json({
-      message: `Hello ${name}!`,
-    });
+    try {
+      const { profile } = await authenticateStudent(req);
+      return jsonResponse(profile);
+    } catch (error) {
+      return errorResponse(error);
+    }
   }),
 };
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/student-profile' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/

@@ -11,8 +11,9 @@ info:
 
     Los esquemas de las respuestas exitosas del SII se basan en respuestas reales
     observadas. El backend devuelve esos datos institucionales sin persistirlos
-    ni cambiar sus nombres o tipos de campo. Los formatos de error del SII no se
-    han observado; este contrato define las respuestas de error propias del backend.
+    ni cambiar sus nombres o tipos de campo. Se observaron errores de login como
+    HTTP 200 con status: 401 en el JSON, y errores de token como HTTP 401 con un
+    objeto error. El backend normaliza esos casos al esquema Error de este contrato.
 
     Las funciones deben permitir que el JWT institucional llegue al código de la
     Edge Function; allí se valida consultando un endpoint protegido del SII. No
@@ -89,7 +90,9 @@ paths:
         La respuesta exitosa del SII también se usa para confirmar que el token
         es aceptado y obtener la identidad institucional estable del estudiante
         desde data.numero_control. No se debe confiar en claims decodificados
-        localmente ni en un student_id proporcionado por el cliente.
+        localmente ni en un student_id proporcionado por el cliente. Si el SII
+        responde HTTP 401 con un token inválido o expirado, el backend responde
+        HTTP 401 con el esquema Error de este contrato.
       security:
         - institutionalBearer: []
           supabaseApiKey: []
@@ -127,6 +130,10 @@ paths:
                       foto: null
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
         '502':
           $ref: '#/components/responses/UpstreamError'
 
