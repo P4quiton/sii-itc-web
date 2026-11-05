@@ -1,4 +1,6 @@
-import { NavLink } from 'react-router-dom'
+
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 
 const menuItems = [
   { name: 'Dashboard', path: '/dashboard' },
@@ -9,8 +11,16 @@ const menuItems = [
 ]
 
 export default function Sidebar() {
+  const navigate = useNavigate()
+  const { logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
   return (
-    <aside className="w-64 shrink-0 bg-slate-900 p-6 text-white">
+    <aside className="flex w-64 shrink-0 flex-col bg-slate-900 p-6 text-white">
       <h2 className="mb-8 text-2xl font-bold">SII ITC</h2>
 
       <nav className="flex flex-col gap-2">
@@ -30,6 +40,16 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <div className="mt-auto pt-8">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full rounded-lg border border-slate-600 px-4 py-3 text-left font-medium text-slate-200 transition hover:bg-slate-800"
+        >
+          Cerrar sesión
+        </button>
+      </div>
     </aside>
   )
 }

@@ -1,22 +1,88 @@
-const indicators = [
-  {
-    title: 'Materias inscritas',
-    value: '—',
-    description: 'Periodo actual',
-  },
-  {
-    title: 'Promedio general',
-    value: '—',
-    description: 'Historial académico',
-  },
-  {
-    title: 'Créditos aprobados',
-    value: '—',
-    description: 'Avance académico',
-  },
-]
+
+import { useEffect, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
+import {
+  getStudentProfile,
+  getStudentErrorMessage,
+} from '../services/studentService'
+
+function displayValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return 'No disponible'
+  }
+
+  return String(value)
+}
 
 export default function Dashboard() {
+  const { token, logout } = useAuth()
+
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) return
+
+    const controller = new AbortController()
+
+    async function loadProfile() {
+      try {
+        const data = await getStudentProfile(
+          token,
+          controller.signal
+        )
+
+        if (controller.signal.aborted) return
+
+        setProfile(data)
+        setError('')
+      } catch (err) {
+        if (controller.signal.aborted) return
+
+        if (err.response?.status === 401) {
+          logout()
+          return
+        }
+
+        setError(getStudentErrorMessage(err))
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadProfile()
+
+    return () => {
+      controller.abort()
+    }
+  }, [token, logout])
+
+  if (loading) {
+    return <LoadingSpinner message="Consultando información del estudiante..." />
+  }
+
+  const indicators = [
+    {
+      title: 'Materias aprobadas',
+      value: displayValue(profile?.materias_aprobadas),
+      description: 'Historial académico',
+    },
+    {
+      title: 'Promedio general',
+      value: displayValue(profile?.promedio_ponderado),
+      description: 'Promedio ponderado',
+    },
+    {
+      title: 'Créditos acumulados',
+      value: displayValue(profile?.creditos_acumulados),
+      description: 'Avance académico',
+    },
+  ]
+
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-8">
       <div className="mx-auto max-w-6xl">
@@ -31,6 +97,15 @@ export default function Dashboard() {
           </p>
         </header>
 
+        {error && (
+          <div
+            role="alert"
+            className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
+          >
+            {error}
+          </div>
+        )}
+
         <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-xl font-semibold text-slate-900">
             Información del estudiante
@@ -42,7 +117,7 @@ export default function Dashboard() {
                 Nombre completo
               </p>
               <p className="font-medium text-slate-800">
-                Pendiente de consulta
+                {displayValue(profile?.persona)}
               </p>
             </div>
 
@@ -51,25 +126,25 @@ export default function Dashboard() {
                 Número de control
               </p>
               <p className="font-medium text-slate-800">
-                Pendiente de consulta
+                {displayValue(profile?.numero_control)}
               </p>
             </div>
 
             <div>
               <p className="text-sm text-slate-500">
-                Carrera
+                Correo electrónico
               </p>
-              <p className="font-medium text-slate-800">
-                Pendiente de consulta
+              <p className="break-all font-medium text-slate-800">
+                {displayValue(profile?.email)}
               </p>
             </div>
 
             <div>
               <p className="text-sm text-slate-500">
-                Periodo académico
+                Semestre
               </p>
               <p className="font-medium text-slate-800">
-                Pendiente de consulta
+                {displayValue(profile?.semestre)}
               </p>
             </div>
           </div>
@@ -108,12 +183,18 @@ export default function Dashboard() {
           </h2>
 
           <p className="mt-2 text-sm text-blue-800">
-            Los datos académicos estarán disponibles después
-            de iniciar sesión y completar la conexión con el
-            backend institucional mediante Supabase.
+            {profile
+              ? 'La información mostrada fue consultada mediante el backend institucional del SII ITC.'
+              : 'No fue posible cargar la información académica. Puedes intentar nuevamente iniciando sesión.'}
           </p>
-        </section>
 
+          {profile?.porcentaje_avance !== null &&
+            profile?.porcentaje_avance !== undefined && (
+              <p className="mt-3 text-sm font-semibold text-blue-900">
+                Avance académico: {profile.porcentaje_avance}%
+              </p>
+            )}
+        </section>
       </div>
     </main>
   )

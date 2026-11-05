@@ -7,15 +7,10 @@ import MainLayout from './components/layout/MainLayout'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Calificaciones from './pages/Calificaciones'
-import Kardex from './pages/Kardex'
-import Horario from './pages/Horario'
+import CalificacionesPage from './pages/CalificacionesPage'
+import KardexPage from './pages/KardexPage'
+import HorarioPage from './pages/HorarioPage'
 import Organizador from './pages/Organizador'
-
-// Datos únicamente para previsualización durante el desarrollo
-import { gradesPreview } from './dev/gradesPreview'
-import { kardexPreview } from './dev/kardexPreview'
-import { schedulePreview } from './dev/schedulePreview'
 
 export default function App() {
   return (
@@ -24,36 +19,6 @@ export default function App() {
         <Routes>
           {/* Ruta pública */}
           <Route path="/login" element={<Login />} />
-
-          {/* Rutas exclusivas del entorno de desarrollo */}          
-          {import.meta.env.DEV && (
-            <Route element={<MainLayout />}>
-              <Route
-                path="/preview/dashboard"
-                element={<Dashboard />}
-              />
-
-              <Route
-                path="/preview/calificaciones"
-                element={<Calificaciones grades={gradesPreview} />}
-              />
-
-              <Route
-                path="/preview/kardex"
-                element={
-                  <Kardex
-                    records={kardexPreview.records}
-                    progress={kardexPreview.progress}
-                  />
-                }
-              />
-
-              <Route
-                path="/preview/horario"
-                element={<Horario classes={schedulePreview} />}
-              />
-            </Route>
-          )}
 
           {/* Rutas privadas */}
           <Route element={<ProtectedRoute />}>
@@ -65,17 +30,17 @@ export default function App() {
 
               <Route
                 path="/calificaciones"
-                element={<Calificaciones />}
+                element={<CalificacionesPage />}
               />
 
               <Route
                 path="/kardex"
-                element={<Kardex />}
+                element={<KardexPage />}
               />
 
               <Route
                 path="/horario"
-                element={<Horario />}
+                element={<HorarioPage />}
               />
 
               <Route

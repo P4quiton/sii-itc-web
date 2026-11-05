@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
-import LoadingSpinner from '../components/ui/LoadingSpinner'
-import { DAYS } from '../utils/scheduleAdapter'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import { DAYS } from '../../utils/scheduleAdapter'
 
 export default function Horario({
   classes = [],
