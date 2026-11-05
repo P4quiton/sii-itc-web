@@ -1,0 +1,75 @@
+
+import { adaptScheduleResponse } from '../utils/scheduleAdapter'
+
+const sampleResponse = {
+  code: 200,
+  message: 'Horario de prueba',
+  flag: true,
+  data: [
+    {
+      periodo: {
+        clave_periodo: '26/2',
+        anio: 2026,
+        descripcion_periodo: 'Agosto - Diciembre 2026',
+      },
+      horario: [
+        {
+          id_grupo: 10001,
+          letra_grupo: 'A',
+          nombre_materia: 'Desarrollo Web',
+          clave_materia: 'DWB-1001',
+          lunes: '09:00-11:00',
+          lunes_clave_salon: 'A1',
+          martes: null,
+          martes_clave_salon: null,
+          miercoles: '09:00-11:00',
+          miercoles_clave_salon: 'A1',
+          jueves: null,
+          jueves_clave_salon: null,
+          viernes: null,
+          viernes_clave_salon: null,
+          sabado: null,
+          sabado_clave_salon: null,
+        },
+        {
+          id_grupo: 10002,
+          letra_grupo: 'B',
+          nombre_materia: 'Bases de Datos',
+          clave_materia: 'BDD-1002',
+          lunes: null,
+          lunes_clave_salon: null,
+          martes: '11:00-13:00',
+          martes_clave_salon: 'B2',
+          miercoles: null,
+          miercoles_clave_salon: null,
+          jueves: '11:00-13:00',
+          jueves_clave_salon: 'B2',
+          viernes: null,
+          viernes_clave_salon: null,
+          sabado: null,
+          sabado_clave_salon: null,
+        },
+        {
+          id_grupo: 10003,
+          letra_grupo: 'A',
+          nombre_materia: 'Redes de Computadoras',
+          clave_materia: 'RED-1003',
+          lunes: '12:00-14:00',
+          lunes_clave_salon: 'LAB-1',
+          martes: null,
+          martes_clave_salon: null,
+          miercoles: null,
+          miercoles_clave_salon: null,
+          jueves: null,
+          jueves_clave_salon: null,
+          viernes: '12:00-14:00',
+          viernes_clave_salon: 'LAB-1',
+          sabado: null,
+          sabado_clave_salon: null,
+        },
+      ],
+    },
+  ],
+}
+
+export const schedulePreview = adaptScheduleResponse(sampleResponse)

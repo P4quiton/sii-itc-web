@@ -14,6 +14,8 @@ import Organizador from './pages/Organizador'
 
 // Datos únicamente para previsualización durante el desarrollo
 import { gradesPreview } from './dev/gradesPreview'
+import { kardexPreview } from './dev/kardexPreview'
+import { schedulePreview } from './dev/schedulePreview'
 
 export default function App() {
   return (
@@ -23,7 +25,7 @@ export default function App() {
           {/* Ruta pública */}
           <Route path="/login" element={<Login />} />
 
-          {/* Rutas exclusivas del entorno de desarrollo */}
+          {/* Rutas exclusivas del entorno de desarrollo */}          
           {import.meta.env.DEV && (
             <Route element={<MainLayout />}>
               <Route
@@ -33,9 +35,22 @@ export default function App() {
 
               <Route
                 path="/preview/calificaciones"
+                element={<Calificaciones grades={gradesPreview} />}
+              />
+
+              <Route
+                path="/preview/kardex"
                 element={
-                  <Calificaciones grades={gradesPreview} />
+                  <Kardex
+                    records={kardexPreview.records}
+                    progress={kardexPreview.progress}
+                  />
                 }
+              />
+
+              <Route
+                path="/preview/horario"
+                element={<Horario classes={schedulePreview} />}
               />
             </Route>
           )}
