@@ -1,6 +1,6 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
-import { extractBearerToken } from "../_shared/auth.ts";
+import { authenticateStudent } from "../_shared/auth.ts";
 import { ApiError } from "../_shared/errors.ts";
 import { siiRequest } from "../_shared/sii-client.ts";
 import { errorResponse, jsonResponse } from "../_shared/response.ts";
@@ -15,7 +15,7 @@ function isGradesResponse(value: unknown): boolean {
 }
 
 export default {
-  fetch: withSupabase({ auth: "none" }, async (req) => {
+  fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
     if (req.method !== "GET") {
       return errorResponse(
         new ApiError(405, "METHOD_NOT_ALLOWED", "Este endpoint solo acepta GET."),
@@ -23,7 +23,7 @@ export default {
     }
 
     try {
-      const token = extractBearerToken(req);
+      const { token } = await authenticateStudent(req, ctx.supabaseAdmin);
 
       let upstream: Awaited<ReturnType<typeof siiRequest>>;
       try {
