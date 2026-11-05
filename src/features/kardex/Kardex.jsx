@@ -1,6 +1,6 @@
 
 import { useState } from 'react'
-import LoadingSpinner from '../components/ui/LoadingSpinner'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
 
 function getGradeStyle(grade) {
   if (grade === null || grade === undefined || grade === '') {

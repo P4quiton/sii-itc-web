@@ -1,26 +1,51 @@
+
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import {
+  loginWithSII,
+  getLoginErrorMessage,
+} from '../services/authService'
 
 export default function Login() {
+  const navigate = useNavigate()
+  const { login } = useAuth()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
 
-    if (!email.trim() || !password) {
+    const cleanEmail = email.trim()
+
+    if (!cleanEmail || !password) {
       setError('Todos los campos son obligatorios.')
       return
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setError('Ingresa un correo electrónico válido.')
       return
     }
 
-    // La conexión con la API del SII se implementará después.
-    setError('La autenticación aún no está habilitada.')
+    setLoading(true)
+
+    try {
+      const token = await loginWithSII(cleanEmail, password)
+
+      login(token)
+
+      setPassword('')
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      setError(getLoginErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -56,8 +81,10 @@ export default function Login() {
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="Ingresa tu correo electrónico"
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="Ingresa tu correo institucional"
+              disabled={loading}
+              required
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
             />
           </div>
 
@@ -76,7 +103,9 @@ export default function Login() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Ingresa tu contraseña"
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              disabled={loading}
+              required
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
             />
           </div>
 
@@ -91,9 +120,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white transition hover:bg-blue-800"
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Iniciar sesión
+            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
         </form>
 
