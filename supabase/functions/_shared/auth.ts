@@ -22,7 +22,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function extractBearerToken(request: Request): string {
+export function extractBearerToken(request: Request): string {
   const authorization = request.headers.get("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(authorization.trim());
   const token = match?.[1]?.trim();
