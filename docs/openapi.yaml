@@ -15,13 +15,15 @@ info:
     HTTP 200 con status: 401 en el JSON, y errores de token como HTTP 401 con un
     objeto error. El backend normaliza esos casos al esquema Error de este contrato.
 
-    Las funciones deben permitir que el JWT institucional llegue al código de la
-    Edge Function; allí se valida consultando un endpoint protegido del SII. No
-    se debe aplicar la verificación JWT predeterminada de Supabase a este token,
-    porque no fue emitido por Supabase Auth.
+    Este contrato describe el objetivo de sesión persistente: el navegador usa
+    una cookie HttpOnly con identificador opaco; el backend conserva y valida el
+    JWT institucional ante el SII. El JWT no se devuelve al navegador. La
+    verificación JWT de Supabase no aplica al token emitido por el SII. Durante
+    la migración, este contrato debe desplegarse con backend y frontend
+    compatibles; el flujo Bearer actual sigue vigente hasta el corte coordinado.
 servers:
-  - url: https://afqhibdyrfrugvmogplt.supabase.co/functions/v1
-    description: Supabase Edge Functions del proyecto de desarrollo
+  - url: https://sii-itc-web.vercel.app/api
+    description: Proxy del mismo origen en Vercel; los Preview Deployments usan su propio dominio
 
 tags:
   - name: Autenticación
@@ -36,9 +38,12 @@ paths:
       summary: Iniciar sesión mediante el SII ITC
       description: |
         Reenvía las credenciales al endpoint institucional POST /api/login.
-        Devuelve la estructura de respuesta del SII, incluido el JWT en
-        message.login.token. El frontend usará ese valor como Bearer token en
-        las peticiones al backend. No crea una cuenta ni contraseña en Supabase Auth.
+        Valida las credenciales contra el SII. En éxito crea una sesión del
+        servidor y establece la cookie HttpOnly sii_session. El JWT institucional
+        no se devuelve al navegador. La respuesta incluye un csrf_token que el
+        frontend conserva solo en memoria y envía en X-CSRF-Token para solicitudes
+        mutables. Se valida Origin contra una lista permitida. No crea cuenta ni
+        contraseña en Supabase Auth.
         El SII puede devolver HTTP 200 con status: 401 en el JSON cuando las
         credenciales son rechazadas; este backend normaliza ese caso como HTTP
         401 con el esquema Error definido aquí.
@@ -52,33 +57,90 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Autenticación institucional exitosa
+          description: Autenticación exitosa; establece cookie opaca de sesión
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
+              schema: { $ref: '#/components/schemas/SessionResponse' }
               examples:
                 ejemplo:
-                  summary: Respuesta de login con token ficticio
+                  summary: Login sin exponer el JWT institucional
                   value:
-                    responseCodeTxt: 200 OK
-                    message:
-                      login:
-                        token: '<JWT_FICTICIO>'
-                    status: 200
-                    flag: success
-                    data: 200
-                    type: estudiante
+                    data:
+                      authenticated: true
+                      expires_at: '2026-11-05T10:00:00Z'
+                      csrf_token: '<CSRF_TOKEN_SINTETICO>'
         '400':
           $ref: '#/components/responses/BadRequest'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
         '500':
           $ref: '#/components/responses/InternalError'
         '502':
           $ref: '#/components/responses/UpstreamError'
+
+  /auth-session:
+    get:
+      tags: [Autenticación]
+      operationId: getAuthSession
+      summary: Recuperar el estado de la sesión persistente
+      description: |
+        Valida la sesión de la cookie y comprueba ante el SII que el JWT
+        institucional sigue vigente. Devuelve un token CSRF sincronizado con la
+        sesión para solicitudes mutables. No devuelve el JWT ni datos personales
+        del perfil.
+      security:
+        - sessionCookie: []
+          supabaseApiKey: []
+      responses:
+        '200':
+          description: Sesión vigente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
+              example:
+                data:
+                  authenticated: true
+                  expires_at: '2026-11-05T10:00:00Z'
+                  csrf_token: '<CSRF_TOKEN_SINTETICO>'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /auth-logout:
+    post:
+      tags: [Autenticación]
+      operationId: logout
+      summary: Cerrar la sesión persistente
+      description: |
+        Invalida la sesión en el servidor y expira la cookie. Requiere Origin
+        permitido y X-CSRF-Token válido. Es idempotente: devuelve 204 aunque la
+        cookie ya no corresponda a una sesión activa.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+          supabaseApiKey: []
+      responses:
+        '204':
+          description: Sesión invalidada y cookie expirada
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ExpiredSessionCookie'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
 
   /student-profile:
     get:
@@ -94,7 +156,7 @@ paths:
         responde HTTP 401 con un token inválido o expirado, el backend responde
         HTTP 401 con el esquema Error de este contrato.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       responses:
         '200':
@@ -129,7 +191,7 @@ paths:
                       percentaje_avance_cursando: 50
                       foto: null
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '500':
@@ -144,7 +206,7 @@ paths:
       summary: Consultar calificaciones actuales
       description: Proxy de GET /api/movil/estudiante/calificaciones del SII ITC.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       responses:
         '200':
@@ -179,7 +241,7 @@ paths:
                                 numero_calificacion: 2
                                 calificacion: null
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '502':
           $ref: '#/components/responses/UpstreamError'
 
@@ -190,7 +252,7 @@ paths:
       summary: Consultar el historial académico
       description: Proxy de GET /api/movil/estudiante/kardex del SII ITC.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       responses:
         '200':
@@ -217,7 +279,7 @@ paths:
                           descripcion: NORMAL / ORDINARIO
                           semestre: 1
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '500':
@@ -232,7 +294,7 @@ paths:
       summary: Consultar el horario del semestre actual
       description: Proxy de GET /api/movil/estudiante/horarios del SII ITC.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       responses:
         '200':
@@ -274,7 +336,7 @@ paths:
                             sabado: null
                             sabado_clave_salon: null
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '500':
@@ -317,7 +379,7 @@ paths:
         completadas. Se devuelven hasta 10, ordenadas por puntaje descendente,
         vencimiento ascendente y creación ascendente.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       responses:
         '200':
@@ -365,7 +427,7 @@ paths:
                             - Prioridad alta (+20).
                             - Estado pendiente (+10).
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '500':
           $ref: '#/components/responses/InternalError'
         '502':
@@ -377,12 +439,12 @@ paths:
       operationId: listActivities
       summary: Listar actividades del estudiante autenticado
       description: |
-        Valida el JWT con una solicitud protegida al SII y obtiene de
+        Valida la sesión y el JWT institucional con una solicitud protegida al SII, y obtiene de
         data.numero_control la identidad estable del estudiante. La consulta se
         limita a ese propietario; el cliente nunca envía student_id. La respuesta
         se pagina y se ordena por due_date ascendente y created_at ascendente.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       parameters:
         - name: subject
@@ -438,7 +500,7 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '500':
           $ref: '#/components/responses/InternalError'
         '502':
@@ -448,9 +510,10 @@ paths:
       tags: [Organizador académico]
       operationId: createActivity
       summary: Crear una actividad
-      description: El backend asigna el propietario a partir de la identidad validada con el SII ITC.
+      description: El backend asigna el propietario a partir de identidad validada con el SII ITC. Requiere Origin permitido y X-CSRF-Token vigente.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
+          csrfToken: []
           supabaseApiKey: []
       requestBody:
         required: true
@@ -470,7 +533,9 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
@@ -490,7 +555,7 @@ paths:
       operationId: getActivity
       summary: Consultar una actividad propia
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
           supabaseApiKey: []
       responses:
         '200':
@@ -503,7 +568,7 @@ paths:
                 properties:
                   data: { $ref: '#/components/schemas/Activity' }
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -516,7 +581,8 @@ paths:
       summary: Modificar una actividad propia
       description: Permite actualizar campos y cambiar el estado a completada.
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
+          csrfToken: []
           supabaseApiKey: []
       requestBody:
         required: true
@@ -536,7 +602,9 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
@@ -550,13 +618,16 @@ paths:
       operationId: deleteActivity
       summary: Eliminar una actividad propia
       security:
-        - institutionalBearer: []
+        - sessionCookie: []
+          csrfToken: []
           supabaseApiKey: []
       responses:
         '204':
           description: Actividad eliminada
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -571,16 +642,30 @@ components:
       in: header
       name: apikey
       description: Clave publicable del proyecto Supabase para identificar el proyecto al invocar Edge Functions.
-    institutionalBearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sii_session
       description: |
-        JWT emitido por el endpoint de login del SII ITC. Para endpoints del
-        organizador, el backend debe comprobar su aceptación mediante una
-        solicitud protegida al SII y obtener data.numero_control. No debe
-        confiar únicamente en decodificar el token ni aceptar una identidad
-        enviada por el cliente.
+        Identificador aleatorio opaco de sesión. No contiene el JWT institucional.
+        Cookie emitida por el proxy del mismo origen con HttpOnly, Secure,
+        SameSite=Lax, Path=/api, sin Domain y vencimiento no posterior al JWT SII.
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Token sincronizador devuelto por auth-login/auth-session; requerido para operaciones que modifican estado.
+
+  headers:
+    SessionCookie:
+      description: |
+        Cookie de sesión opaca. Atributos esperados: HttpOnly; Secure;
+        SameSite=Lax; Path=/api; sin Domain; Max-Age no posterior a la
+        expiración del JWT institucional.
+      schema: { type: string, example: 'sii_session=<VALOR_OPACO>; Path=/api; HttpOnly; Secure; SameSite=Lax; Max-Age=3600' }
+    ExpiredSessionCookie:
+      description: Elimina la cookie usando el mismo Path y atributos de seguridad.
+      schema: { type: string, example: 'sii_session=; Path=/api; HttpOnly; Secure; SameSite=Lax; Max-Age=0' }
 
   schemas:
     LoginRequest:
@@ -591,26 +676,19 @@ components:
         email: { type: string, format: email }
         password: { type: string, minLength: 1, writeOnly: true }
 
-    LoginResponse:
+    SessionResponse:
       type: object
-      required: [responseCodeTxt, message, status, flag, data, type]
+      additionalProperties: false
+      required: [data]
       properties:
-        responseCodeTxt: { type: string, examples: ['200 OK'] }
-        message:
+        data:
           type: object
-          required: [login]
+          additionalProperties: false
+          required: [authenticated, expires_at, csrf_token]
           properties:
-            login:
-              type: object
-              required: [token]
-              properties:
-                token:
-                  type: string
-                  description: JWT institucional; enviarlo como Authorization Bearer en llamadas protegidas.
-        status: { type: integer, examples: [200] }
-        flag: { type: string, examples: [success] }
-        data: { type: integer, examples: [200] }
-        type: { type: string, description: Tipo de cuenta institucional, por ejemplo estudiante. }
+            authenticated: { type: boolean, const: true }
+            expires_at: { type: string, format: date-time, description: Vencimiento de la sesión, nunca posterior a la expiración conocida del JWT institucional. }
+            csrf_token: { type: string, minLength: 32, description: Token opaco ligado a la sesión; mantener solo en memoria del navegador. }
 
     StudentProfileResponse:
       description: Respuesta del perfil. La foto puede ser una cadena Base64 extensa.
@@ -1021,7 +1099,20 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
-      description: Credenciales inválidas, JWT ausente, expirado o rechazado por el SII
+      description: Credenciales institucionales rechazadas; error INVALID_CREDENTIALS.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InvalidSession:
+      description: Cookie ausente/inválida o JWT institucional expirado/rechazado. Error INVALID_SESSION; el servidor invalida la sesión y expira la cookie.
+      headers:
+        Set-Cookie:
+          $ref: '#/components/headers/ExpiredSessionCookie'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    CsrfRejected:
+      description: Origin no permitido o token CSRF ausente/inválido; error CSRF_REJECTED.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
