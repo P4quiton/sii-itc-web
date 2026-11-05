@@ -38,6 +38,9 @@ paths:
         Devuelve la estructura de respuesta del SII, incluido el JWT en
         message.login.token. El frontend usará ese valor como Bearer token en
         las peticiones al backend. No crea una cuenta ni contraseña en Supabase Auth.
+        El SII puede devolver HTTP 200 con status: 401 en el JSON cuando las
+        credenciales son rechazadas; este backend normaliza ese caso como HTTP
+        401 con el esquema Error definido aquí.
       security:
         - supabaseApiKey: []
       requestBody:
@@ -67,6 +70,8 @@ paths:
                     type: estudiante
         '400':
           $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -735,6 +740,11 @@ components:
   responses:
     BadRequest:
       description: Solicitud malformada o parámetros incompatibles
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    MethodNotAllowed:
+      description: El método HTTP no está permitido para esta ruta
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
