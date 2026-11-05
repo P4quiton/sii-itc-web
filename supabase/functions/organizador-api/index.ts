@@ -1,6 +1,7 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 import { authenticateStudent } from "../_shared/auth.ts";
+import { isLegacyBearerRequest, requireCsrf } from "../_shared/session.ts";
 import { ApiError } from "../_shared/errors.ts";
 import { errorResponse } from "../_shared/response.ts";
 import {
@@ -17,7 +18,10 @@ export default {
   fetch: withSupabase({ auth: "none" }, async (request, ctx) => {
     try {
       const route = resolveRoute(request);
-      const { studentId } = await authenticateStudent(request);
+      const { studentId, csrfHash } = await authenticateStudent(request, ctx.supabaseAdmin);
+      if (request.method !== "GET" && !isLegacyBearerRequest(request)) {
+        await requireCsrf(request, { csrfHash });
+      }
       // El cliente admin omite RLS; las consultas filtran por esta identidad verificada.
       const db = ctx.supabaseAdmin;
       const url = new URL(request.url);
