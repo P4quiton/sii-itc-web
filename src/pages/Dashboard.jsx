@@ -15,6 +15,68 @@ function displayValue(value) {
   return String(value)
 }
 
+function getStudentPhoto(foto) {
+  if (typeof foto !== 'string' || !foto.trim()) {
+    return null
+  }
+
+  const cleanBase64 = foto.replace(/\s/g, '')
+
+  if (!cleanBase64) {
+    return null
+  }
+
+  // Verificar que la cadena tenga formato Base64.
+  if (
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64) ||
+    cleanBase64.length % 4 !== 0
+  ) {
+    return null
+  }
+
+  // La fotografía devuelta por el SII es un JPEG en Base64.
+  return `data:image/jpeg;base64,${cleanBase64}`
+}
+
+function StudentPhoto({ foto }) {
+  const [imageError, setImageError] = useState(false)
+
+  const photoSrc = getStudentPhoto(foto)
+
+  if (!photoSrc || imageError) {
+    return (
+      <div
+        role="img"
+        aria-label="Fotografía del estudiante no disponible"
+        className="flex h-32 w-32 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="h-16 w-16 text-slate-400"
+        >
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+        </svg>
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={photoSrc}
+      alt="Fotografía institucional del estudiante"
+      onError={() => setImageError(true)}
+      className="h-32 w-32 shrink-0 rounded-2xl border border-slate-200 bg-slate-100 object-cover"
+    />
+  )
+}
+
 export default function Dashboard() {
   const { isAuthenticated, invalidateSession } = useAuth()
 
@@ -61,7 +123,9 @@ export default function Dashboard() {
   }, [isAuthenticated, invalidateSession])
 
   if (loading) {
-    return <LoadingSpinner message="Consultando información del estudiante..." />
+    return (
+      <LoadingSpinner message="Consultando información del estudiante..." />
+    )
   }
 
   const indicators = [
@@ -85,7 +149,6 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-8">
       <div className="mx-auto max-w-6xl">
-
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">
             Dashboard
@@ -106,45 +169,62 @@ export default function Dashboard() {
         )}
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-semibold text-slate-900">
+          <h2 className="mb-5 text-xl font-semibold text-slate-900">
             Información del estudiante
           </h2>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm text-slate-500">
-                Nombre completo
-              </p>
-              <p className="font-medium text-slate-800">
-                {displayValue(profile?.persona)}
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+            <div className="flex shrink-0 flex-col items-center gap-2">
+              <StudentPhoto
+                key={profile?.numero_control ?? 'student'}
+                foto={profile?.foto}
+              />
+
+              <p className="text-center text-xs text-slate-500">
+                Fotografía institucional
               </p>
             </div>
 
-            <div>
-              <p className="text-sm text-slate-500">
-                Número de control
-              </p>
-              <p className="font-medium text-slate-800">
-                {displayValue(profile?.numero_control)}
-              </p>
-            </div>
+            <div className="grid w-full min-w-0 gap-5 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-slate-500">
+                  Nombre completo
+                </p>
 
-            <div>
-              <p className="text-sm text-slate-500">
-                Correo electrónico
-              </p>
-              <p className="break-all font-medium text-slate-800">
-                {displayValue(profile?.email)}
-              </p>
-            </div>
+                <p className="font-medium text-slate-800">
+                  {displayValue(profile?.persona)}
+                </p>
+              </div>
 
-            <div>
-              <p className="text-sm text-slate-500">
-                Semestre
-              </p>
-              <p className="font-medium text-slate-800">
-                {displayValue(profile?.semestre)}
-              </p>
+              <div>
+                <p className="text-sm text-slate-500">
+                  Número de control
+                </p>
+
+                <p className="font-medium text-slate-800">
+                  {displayValue(profile?.numero_control)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-500">
+                  Correo electrónico
+                </p>
+
+                <p className="break-all font-medium text-slate-800">
+                  {displayValue(profile?.email)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-500">
+                  Semestre
+                </p>
+
+                <p className="font-medium text-slate-800">
+                  {displayValue(profile?.semestre)}
+                </p>
+              </div>
             </div>
           </div>
         </section>

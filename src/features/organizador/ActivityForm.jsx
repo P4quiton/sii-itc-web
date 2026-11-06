@@ -35,7 +35,7 @@ function toLocalDateTime(value) {
 }
 
 function getInitialValues(activity) {
-  if (!activity) return initialValues
+  if (!activity) return { ...initialValues }
 
   return {
     title: activity.title ?? '',
@@ -60,6 +60,9 @@ const labelClass =
 
 export default function ActivityForm({
   activity = null,
+  subjects = [],
+  subjectsLoading = false,
+  subjectsError = '',
   onSubmit,
   onCancel,
   saving = false,
@@ -70,6 +73,25 @@ export default function ActivityForm({
   const [error, setError] = useState('')
 
   const isEditing = Boolean(activity)
+
+  const availableSubjects = [
+    ...new Set(
+      subjects
+        .filter((subject) => typeof subject === 'string')
+        .map((subject) => subject.trim())
+        .filter(Boolean)
+    ),
+  ]
+
+  const currentSubject = form.subject.trim()
+
+  const isPreviousSubject =
+    currentSubject &&
+    !availableSubjects.includes(currentSubject)
+
+  const showManualSubject =
+    !subjectsLoading &&
+    availableSubjects.length === 0
 
   function changeField(name, value) {
     setForm((current) => ({
@@ -151,7 +173,7 @@ export default function ActivityForm({
       await onSubmit(payload)
     } catch {
       setError(
-        'No fue posible guardar la actividad. Inténtalo nuevamente.'
+        'No fue posible guardar la actividad. Revisa el mensaje de error e inténtalo nuevamente.'
       )
     }
   }
@@ -174,7 +196,10 @@ export default function ActivityForm({
       <form onSubmit={handleSubmit} noValidate>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label htmlFor="activity-title" className={labelClass}>
+            <label
+              htmlFor="activity-title"
+              className={labelClass}
+            >
               Título *
             </label>
 
@@ -194,26 +219,85 @@ export default function ActivityForm({
           </div>
 
           <div>
-            <label htmlFor="activity-subject" className={labelClass}>
+            <label
+              htmlFor="activity-subject"
+              className={labelClass}
+            >
               Materia
             </label>
 
-            <input
-              id="activity-subject"
-              type="text"
-              maxLength={200}
-              value={form.subject}
-              onChange={(event) =>
-                changeField('subject', event.target.value)
-              }
-              placeholder="Ej. Redes de Computadoras"
-              disabled={saving}
-              className={inputClass}
-            />
+            {showManualSubject ? (
+              <>
+                <input
+                  id="activity-subject"
+                  type="text"
+                  maxLength={200}
+                  value={form.subject}
+                  onChange={(event) =>
+                    changeField('subject', event.target.value)
+                  }
+                  placeholder="Escribe el nombre de la materia"
+                  disabled={saving}
+                  className={inputClass}
+                />
+
+                <p className="mt-2 text-xs text-slate-500">
+                  No hay materias disponibles del horario
+                  institucional. Puedes escribirla manualmente.
+                </p>
+              </>
+            ) : (
+              <>
+                <select
+                  id="activity-subject"
+                  value={form.subject}
+                  onChange={(event) =>
+                    changeField('subject', event.target.value)
+                  }
+                  disabled={saving || subjectsLoading}
+                  className={inputClass}
+                >
+                  <option value="">
+                    {subjectsLoading
+                      ? 'Cargando materias...'
+                      : 'Selecciona una materia'}
+                  </option>
+
+                  {availableSubjects.map((subject) => (
+                    <option key={subject} value={subject}>
+                      {subject}
+                    </option>
+                  ))}
+
+                  {isPreviousSubject && (
+                    <option value={currentSubject}>
+                      {currentSubject} (materia registrada)
+                    </option>
+                  )}
+                </select>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Materias obtenidas del horario institucional
+                  del periodo actual.
+                </p>
+              </>
+            )}
+
+            {subjectsError && (
+              <p
+                role="status"
+                className="mt-2 text-xs text-amber-700"
+              >
+                {subjectsError}
+              </p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="activity-type" className={labelClass}>
+            <label
+              htmlFor="activity-type"
+              className={labelClass}
+            >
               Tipo de actividad *
             </label>
 
@@ -234,7 +318,10 @@ export default function ActivityForm({
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="activity-description" className={labelClass}>
+            <label
+              htmlFor="activity-description"
+              className={labelClass}
+            >
               Descripción
             </label>
 
@@ -253,7 +340,10 @@ export default function ActivityForm({
           </div>
 
           <div>
-            <label htmlFor="activity-date" className={labelClass}>
+            <label
+              htmlFor="activity-date"
+              className={labelClass}
+            >
               Fecha y hora de entrega *
             </label>
 
@@ -271,7 +361,10 @@ export default function ActivityForm({
           </div>
 
           <div>
-            <label htmlFor="activity-estimate" className={labelClass}>
+            <label
+              htmlFor="activity-estimate"
+              className={labelClass}
+            >
               Tiempo estimado (minutos)
             </label>
 
@@ -282,7 +375,10 @@ export default function ActivityForm({
               step="1"
               value={form.estimated_minutes}
               onChange={(event) =>
-                changeField('estimated_minutes', event.target.value)
+                changeField(
+                  'estimated_minutes',
+                  event.target.value
+                )
               }
               placeholder="Ej. 120"
               disabled={saving}
@@ -290,13 +386,15 @@ export default function ActivityForm({
             />
 
             <p className="mt-2 text-xs text-slate-500">
-              Opcional. Si lo registras, ayudará a calcular
-              tu carga de trabajo.
+              Opcional. Ayuda a calcular la carga de trabajo.
             </p>
           </div>
 
           <div>
-            <label htmlFor="activity-priority" className={labelClass}>
+            <label
+              htmlFor="activity-priority"
+              className={labelClass}
+            >
               Prioridad *
             </label>
 
@@ -316,7 +414,10 @@ export default function ActivityForm({
           </div>
 
           <div>
-            <label htmlFor="activity-status" className={labelClass}>
+            <label
+              htmlFor="activity-status"
+              className={labelClass}
+            >
               Estado
             </label>
 
@@ -357,7 +458,7 @@ export default function ActivityForm({
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || subjectsLoading}
             className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving
