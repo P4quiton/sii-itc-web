@@ -35,9 +35,9 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const token = await loginWithSII(cleanEmail, password)
+      const session = await loginWithSII(cleanEmail, password)
 
-      login(token)
+      login(session)
 
       setPassword('')
       navigate('/dashboard', { replace: true })

@@ -1,17 +1,10 @@
 
-import {
-  apiClient,
-  withInstitutionalToken,
-} from './apiClient'
+import { apiClient } from './apiClient'
 
-export async function getStudentProfile(token, signal) {
-  const response = await apiClient.get(
-    '/student-profile',
-    {
-      ...withInstitutionalToken(token),
-      signal,
-    }
-  )
+export async function getStudentProfile(signal) {
+  const response = await apiClient.get('/student-profile', {
+    signal,
+  })
 
   const profile = response.data?.data
 
@@ -28,9 +21,8 @@ export async function getStudentProfile(token, signal) {
   return profile
 }
 
-export async function getStudentGrades(token, signal) {
+export async function getStudentGrades(signal) {
   const response = await apiClient.get('/student-grades', {
-    ...withInstitutionalToken(token),
     signal,
   })
 
@@ -43,9 +35,8 @@ export async function getStudentGrades(token, signal) {
   return response.data
 }
 
-export async function getStudentKardex(token, signal) {
+export async function getStudentKardex(signal) {
   const response = await apiClient.get('/student-kardex', {
-    ...withInstitutionalToken(token),
     signal,
   })
 
@@ -65,10 +56,25 @@ export async function getStudentKardex(token, signal) {
   return data
 }
 
+export async function getStudentSchedule(signal) {
+  const response = await apiClient.get('/student-schedule', {
+    signal,
+  })
+
+  if (!Array.isArray(response.data?.data)) {
+    throw new Error(
+      'El SII devolvió un formato de horario inesperado.'
+    )
+  }
+
+  return response.data
+}
+
 export function getStudentErrorMessage(error) {
   const code = error.response?.data?.error?.code
 
   switch (code) {
+    case 'INVALID_SESSION':
     case 'INVALID_TOKEN':
       return 'Tu sesión institucional ha expirado o ya no es válida.'
 
@@ -88,19 +94,4 @@ export function getStudentErrorMessage(error) {
 
       return 'Ocurrió un error al consultar la información académica.'
   }
-}
-
-export async function getStudentSchedule(token, signal) {
-  const response = await apiClient.get('/student-schedule', {
-    ...withInstitutionalToken(token),
-    signal,
-  })
-
-  if (!Array.isArray(response.data?.data)) {
-    throw new Error(
-      'El SII devolvió un formato de horario inesperado.'
-    )
-  }
-
-  return response.data
 }
