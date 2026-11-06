@@ -1,21 +1,48 @@
 
 import { apiClient } from './apiClient'
 
+function validateSessionResponse(response) {
+  const session = response.data?.data
+
+  if (
+    session?.authenticated !== true ||
+    typeof session.expires_at !== 'string' ||
+    typeof session.csrf_token !== 'string' ||
+    !session.csrf_token
+  ) {
+    throw new Error(
+      'El servidor devolvió una sesión inválida.'
+    )
+  }
+
+  return session
+}
+
 export async function loginWithSII(email, password) {
   const response = await apiClient.post('/auth-login', {
     email: email.trim(),
     password,
   })
 
-  const token = response.data?.message?.login?.token
+  return validateSessionResponse(response)
+}
 
-  if (typeof token !== 'string' || !token.trim()) {
-    throw new Error(
-      'El SII no devolvió un token de sesión válido.'
-    )
-  }
+export async function getAuthSession() {
+  const response = await apiClient.get('/auth-session')
 
-  return token
+  return validateSessionResponse(response)
+}
+
+export async function logoutFromSII(csrfToken) {
+  await apiClient.post(
+    '/auth-logout',
+    {},
+    {
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
+    }
+  )
 }
 
 export function getLoginErrorMessage(error) {
@@ -39,7 +66,7 @@ export function getLoginErrorMessage(error) {
 
     default:
       if (!error.response) {
-        return 'No fue posible conectar con el servidor. Revisa tu conexión o la configuración de CORS.'
+        return 'No fue posible conectar con el servidor. Revisa tu conexión.'
       }
 
       return 'Ocurrió un error al iniciar sesión. Inténtalo nuevamente.'

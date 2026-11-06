@@ -9,14 +9,14 @@ import {
 import { adaptGradesResponse } from '../utils/gradesAdapter'
 
 export default function CalificacionesPage() {
-  const { token, logout } = useAuth()
+  const { isAuthenticated, invalidateSession } = useAuth()
 
   const [grades, setGrades] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const controller = new AbortController()
 
@@ -27,7 +27,6 @@ export default function CalificacionesPage() {
 
       try {
         const response = await getStudentGrades(
-          token,
           controller.signal
         )
 
@@ -38,7 +37,7 @@ export default function CalificacionesPage() {
         if (controller.signal.aborted) return
 
         if (err.response?.status === 401) {
-          logout()
+          invalidateSession()
           return
         }
 
@@ -53,7 +52,7 @@ export default function CalificacionesPage() {
     loadGrades()
 
     return () => controller.abort()
-  }, [token, logout])
+  }, [isAuthenticated, invalidateSession])
 
   return (
     <Calificaciones

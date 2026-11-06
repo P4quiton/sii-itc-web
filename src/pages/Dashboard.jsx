@@ -16,21 +16,20 @@ function displayValue(value) {
 }
 
 export default function Dashboard() {
-  const { token, logout } = useAuth()
+  const { isAuthenticated, invalidateSession } = useAuth()
 
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const controller = new AbortController()
 
     async function loadProfile() {
       try {
         const data = await getStudentProfile(
-          token,
           controller.signal
         )
 
@@ -42,7 +41,7 @@ export default function Dashboard() {
         if (controller.signal.aborted) return
 
         if (err.response?.status === 401) {
-          logout()
+          invalidateSession()
           return
         }
 
@@ -59,7 +58,7 @@ export default function Dashboard() {
     return () => {
       controller.abort()
     }
-  }, [token, logout])
+  }, [isAuthenticated, invalidateSession])
 
   if (loading) {
     return <LoadingSpinner message="Consultando información del estudiante..." />

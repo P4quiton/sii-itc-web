@@ -7,7 +7,7 @@ import { getActivitySummary } from '../services/organizerService'
 import { getStudentErrorMessage } from '../services/studentService'
 
 export default function Organizador() {
-  const { token, logout } = useAuth()
+  const { isAuthenticated, invalidateSession } = useAuth()
 
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -15,7 +15,7 @@ export default function Organizador() {
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const controller = new AbortController()
 
@@ -25,7 +25,6 @@ export default function Organizador() {
 
       try {
         const data = await getActivitySummary(
-          token,
           controller.signal
         )
 
@@ -36,7 +35,7 @@ export default function Organizador() {
         if (controller.signal.aborted) return
 
         if (err.response?.status === 401) {
-          logout()
+          invalidateSession()
           return
         }
 
@@ -52,7 +51,7 @@ export default function Organizador() {
     loadSummary()
 
     return () => controller.abort()
-  }, [token, logout, reloadKey])
+  }, [isAuthenticated, invalidateSession, reloadKey])
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-8">

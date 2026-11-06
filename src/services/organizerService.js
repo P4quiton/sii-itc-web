@@ -1,29 +1,35 @@
 
-import {
-  apiClient,
-  withInstitutionalToken,
-} from './apiClient'
+import { apiClient } from './apiClient'
 
 const BASE_PATH = '/organizador-api'
 
-function authorizedConfig(token, config = {}) {
+function csrfConfig(csrfToken) {
+  if (
+    typeof csrfToken !== 'string' ||
+    !csrfToken.trim()
+  ) {
+    throw new Error(
+      'No se encontró el token CSRF de la sesión.'
+    )
+  }
+
   return {
-    ...withInstitutionalToken(token),
-    ...config,
+    headers: {
+      'X-CSRF-Token': csrfToken,
+    },
   }
 }
 
 export async function getActivities(
-  token,
   filters = {},
   signal
 ) {
   const response = await apiClient.get(
     `${BASE_PATH}/activities`,
-    authorizedConfig(token, {
+    {
       params: filters,
       signal,
-    })
+    }
   )
 
   if (
@@ -38,46 +44,49 @@ export async function getActivities(
   return response.data
 }
 
-export async function getActivity(token, id) {
+export async function getActivity(id) {
   const response = await apiClient.get(
-    `${BASE_PATH}/activities/${encodeURIComponent(id)}`,
-    authorizedConfig(token)
+    `${BASE_PATH}/activities/${encodeURIComponent(id)}`
   )
 
   return response.data.data
 }
 
-export async function createActivity(token, activity) {
+export async function createActivity(activity, csrfToken) {
   const response = await apiClient.post(
     `${BASE_PATH}/activities`,
     activity,
-    authorizedConfig(token)
+    csrfConfig(csrfToken)
   )
 
   return response.data.data
 }
 
-export async function updateActivity(token, id, changes) {
+export async function updateActivity(
+  id,
+  changes,
+  csrfToken
+) {
   const response = await apiClient.patch(
     `${BASE_PATH}/activities/${encodeURIComponent(id)}`,
     changes,
-    authorizedConfig(token)
+    csrfConfig(csrfToken)
   )
 
   return response.data.data
 }
 
-export async function deleteActivity(token, id) {
+export async function deleteActivity(id, csrfToken) {
   await apiClient.delete(
     `${BASE_PATH}/activities/${encodeURIComponent(id)}`,
-    authorizedConfig(token)
+    csrfConfig(csrfToken)
   )
 }
 
-export async function getActivitySummary(token, signal) {
+export async function getActivitySummary(signal) {
   const response = await apiClient.get(
     `${BASE_PATH}/summary`,
-    authorizedConfig(token, { signal })
+    { signal }
   )
 
   const summary = response.data?.data

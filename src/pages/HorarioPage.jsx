@@ -9,14 +9,14 @@ import {
 import { adaptScheduleResponse } from '../utils/scheduleAdapter'
 
 export default function HorarioPage() {
-  const { token, logout } = useAuth()
+  const { isAuthenticated, invalidateSession } = useAuth()
 
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const controller = new AbortController()
 
@@ -27,7 +27,6 @@ export default function HorarioPage() {
 
       try {
         const response = await getStudentSchedule(
-          token,
           controller.signal
         )
 
@@ -38,7 +37,7 @@ export default function HorarioPage() {
         if (controller.signal.aborted) return
 
         if (err.response?.status === 401) {
-          logout()
+          invalidateSession()
           return
         }
 
@@ -53,7 +52,7 @@ export default function HorarioPage() {
     loadSchedule()
 
     return () => controller.abort()
-  }, [token, logout])
+  }, [isAuthenticated, invalidateSession])
 
   return (
     <Horario
