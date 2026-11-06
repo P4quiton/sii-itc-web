@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import WorkloadPanel from '../features/organizador/WorkloadPanel'
 import ActivityList from '../features/organizador/ActivityList'
 import ActivityForm from '../features/organizador/ActivityForm'
+import ActivityCalendar from '../features/organizador/ActivityCalendar'
 import {
   getActivities,
   getActivitySummary,
@@ -43,11 +44,8 @@ function getOrganizerErrorMessage(error) {
 function extractCurrentSubjects(periods) {
   if (!Array.isArray(periods)) return []
 
-  // El endpoint del SII proporciona el horario del periodo actual.
-  // Si hubiera varios elementos, utilizamos el primer horario válido.
   const currentPeriod = periods.find(
-    (item) => item &&
-      Array.isArray(item.horario)
+    (item) => item && Array.isArray(item.horario)
   )
 
   if (!currentPeriod) return []
@@ -117,7 +115,7 @@ export default function Organizador() {
 
   const [refreshKey, setRefreshKey] = useState(0)
 
-  // Cargar el análisis académico.
+  // Consultar el análisis académico.
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -163,7 +161,7 @@ export default function Organizador() {
     refreshKey,
   ])
 
-  // Cargar el listado con filtros y paginación.
+  // Consultar el listado de actividades.
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -224,7 +222,7 @@ export default function Organizador() {
     refreshKey,
   ])
 
-  // Cargar las materias del horario institucional.
+  // Obtener las materias inscritas en el SII.
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -278,6 +276,7 @@ export default function Organizador() {
     invalidateSession,
   ])
 
+  // Actualiza análisis, listado y calendario.
   function refreshData() {
     setRefreshKey((current) => current + 1)
   }
@@ -360,6 +359,7 @@ export default function Organizador() {
       setActionError(
         getOrganizerErrorMessage(error)
       )
+
       throw error
     } finally {
       setSaving(false)
@@ -556,6 +556,11 @@ export default function Organizador() {
           onStatusChange={handleStatusChange}
           loading={activitiesLoading}
           busyId={busyId}
+        />
+
+        <ActivityCalendar
+          refreshKey={refreshKey}
+          onUnauthorized={invalidateSession}
         />
       </div>
     </main>
