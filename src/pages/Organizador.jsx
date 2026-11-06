@@ -452,10 +452,10 @@ export default function Organizador() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <main className="min-h-screen min-w-0 bg-slate-100 p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-6xl space-y-8">
         <header>
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
             Organizador académico
           </h1>
 

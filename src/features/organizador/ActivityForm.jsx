@@ -179,7 +179,7 @@ export default function ActivityForm({
   }
 
   return (
-    <section className="rounded-2xl bg-white p-6 shadow-sm">
+    <section className="min-w-0 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-slate-900">
           {isEditing
@@ -446,12 +446,12 @@ export default function ActivityForm({
           </p>
         )}
 
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="rounded-lg border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="min-h-11 rounded-lg border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -459,7 +459,7 @@ export default function ActivityForm({
           <button
             type="submit"
             disabled={saving || subjectsLoading}
-            className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving
               ? 'Guardando...'

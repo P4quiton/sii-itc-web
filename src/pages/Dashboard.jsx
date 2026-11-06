@@ -147,10 +147,10 @@ export default function Dashboard() {
   ]
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <main className="min-h-screen min-w-0 bg-slate-100 p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
             Dashboard
           </h1>
 
@@ -168,7 +168,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
+        <section className="mb-8 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-5 text-xl font-semibold text-slate-900">
             Información del estudiante
           </h2>
@@ -191,7 +191,7 @@ export default function Dashboard() {
                   Nombre completo
                 </p>
 
-                <p className="font-medium text-slate-800">
+                <p className="break-words font-medium text-slate-800">
                   {displayValue(profile?.persona)}
                 </p>
               </div>
@@ -256,7 +256,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
+        <section className="rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-blue-900">
             Información académica
           </h2>

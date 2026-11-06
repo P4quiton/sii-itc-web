@@ -28,11 +28,11 @@ export default function Horario({
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <main className="min-h-screen min-w-0 bg-slate-100 p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-6xl">
 
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
             Horario académico
           </h1>
 
@@ -50,7 +50,7 @@ export default function Horario({
           </div>
         )}
 
-        <section className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
+        <section className="mb-6 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-slate-900">
             Consultar horario
           </h2>
@@ -80,8 +80,8 @@ export default function Horario({
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-6">
+        <section className="min-w-0 rounded-2xl bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-slate-900">
               Clases programadas
             </h2>
@@ -92,7 +92,7 @@ export default function Horario({
           </div>
 
           {filteredClasses.length === 0 ? (
-            <div className="p-12 text-center">
+            <div className="p-8 text-center sm:p-12">
               <p className="font-medium text-slate-700">
                 No hay clases disponibles
               </p>
@@ -104,7 +104,7 @@ export default function Horario({
               </p>
             </div>
           ) : (
-            <div className="space-y-6 p-6">
+            <div className="space-y-6 p-4 sm:p-6">
               {DAYS.filter((day) =>
                 filteredClasses.some((item) => item.dayKey === day.key)
               ).map((day) => (

@@ -56,11 +56,11 @@ export default function Kardex({
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <main className="min-h-screen min-w-0 bg-slate-100 p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-6xl">
 
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
             Kardex académico
           </h1>
 
@@ -78,7 +78,7 @@ export default function Kardex({
           </div>
         )}
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
+        <section className="mb-8 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
@@ -112,7 +112,7 @@ export default function Kardex({
           </div>
         </section>
 
-        <section className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
+        <section className="mb-6 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-5 text-lg font-semibold text-slate-900">
             Consultar materias
           </h2>
@@ -187,7 +187,7 @@ export default function Kardex({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[48rem] text-left text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
                     <th className="px-5 py-4">Materia</th>

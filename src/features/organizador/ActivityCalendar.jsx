@@ -187,7 +187,7 @@ function ActivityDayItem({ activity }) {
   const isCompleted = activity.status === 'completada'
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
+    <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h4
@@ -428,7 +428,7 @@ export default function ActivityCalendar({
   }
 
   return (
-    <section className="space-y-5">
+    <section className="min-w-0 space-y-5">
       <div>
         <h2 className="text-xl font-bold text-slate-900">
           Calendario académico
@@ -440,17 +440,17 @@ export default function ActivityCalendar({
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
-          <h3 className="text-lg font-bold capitalize text-slate-900">
+      <div className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex flex-col items-stretch justify-between gap-3 border-b border-slate-200 p-3 sm:flex-row sm:items-center sm:p-5">
+          <h3 className="text-base font-bold capitalize text-slate-900 sm:text-lg">
             {getMonthLabel(year, month)}
           </h3>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex justify-between gap-2 sm:justify-end">
             <button
               type="button"
               onClick={goToToday}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="min-h-10 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:flex-none"
             >
               Hoy
             </button>
@@ -459,7 +459,7 @@ export default function ActivityCalendar({
               type="button"
               onClick={() => navigateMonth(-1)}
               aria-label="Mes anterior"
-              className="rounded-lg border border-slate-300 px-4 py-2 font-bold text-slate-700 hover:bg-slate-50"
+              className="min-h-10 min-w-10 rounded-lg border border-slate-300 px-3 py-2 font-bold text-slate-700 hover:bg-slate-50 sm:px-4"
             >
               ←
             </button>
@@ -468,7 +468,7 @@ export default function ActivityCalendar({
               type="button"
               onClick={() => navigateMonth(1)}
               aria-label="Mes siguiente"
-              className="rounded-lg border border-slate-300 px-4 py-2 font-bold text-slate-700 hover:bg-slate-50"
+              className="min-h-10 min-w-10 rounded-lg border border-slate-300 px-3 py-2 font-bold text-slate-700 hover:bg-slate-50 sm:px-4"
             >
               →
             </button>
@@ -479,7 +479,7 @@ export default function ActivityCalendar({
           {WEEK_DAYS.map((day) => (
             <div
               key={day}
-              className="py-3 text-center text-xs font-semibold text-slate-600 sm:text-sm"
+              className="py-2 text-center text-[10px] font-semibold text-slate-600 sm:py-3 sm:text-sm"
             >
               {day}
             </div>
@@ -495,7 +495,7 @@ export default function ActivityCalendar({
               return (
                 <div
                   key={`empty-${index}`}
-                  className="min-h-20 bg-slate-50 sm:min-h-24"
+                  className="min-h-14 bg-slate-50 sm:min-h-24"
                 />
               )
             }
@@ -531,14 +531,14 @@ export default function ActivityCalendar({
                 }
                 aria-pressed={isSelected}
                 aria-label={`${getSelectedDateLabel(cell.key)}, ${dayActivities.length} actividades`}
-                className={`relative flex min-h-20 flex-col items-center gap-2 bg-white p-2 text-center transition hover:bg-blue-50 sm:min-h-24 ${
+                className={`relative flex min-h-14 flex-col items-center gap-1 bg-white p-1 text-center transition hover:bg-blue-50 sm:min-h-24 sm:gap-2 sm:p-2 ${
                   isSelected
                     ? 'ring-2 ring-inset ring-blue-600'
                     : ''
                 }`}
               >
                 <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold sm:h-8 sm:w-8 sm:text-sm ${
                     isToday
                       ? 'bg-blue-700 text-white'
                       : 'text-slate-800'
@@ -550,7 +550,7 @@ export default function ActivityCalendar({
                 {dayActivities.length > 0 && (
                   <>
                     <span
-                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold sm:px-2 sm:py-1 sm:text-xs ${
                         hasHighPriority
                           ? 'bg-red-100 text-red-700'
                           : activeCount > 0
@@ -611,7 +611,7 @@ export default function ActivityCalendar({
         </div>
       )}
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
         <div className="mb-5">
           <h3 className="text-lg font-bold capitalize text-slate-900">
             {getSelectedDateLabel(selectedDate)}
