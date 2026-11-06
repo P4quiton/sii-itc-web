@@ -12,7 +12,10 @@ import {
   updateActivity,
   deleteActivity,
 } from '../services/organizerService'
-import { getStudentErrorMessage } from '../services/studentService'
+import {
+  getStudentSchedule,
+  getStudentErrorMessage,
+} from '../services/studentService'
 
 const PAGE_SIZE = 20
 
@@ -24,8 +27,10 @@ function getOrganizerErrorMessage(error) {
   }
 
   if (error.response?.status === 422) {
-    return error.response?.data?.error?.message ||
+    return (
+      error.response?.data?.error?.message ||
       'Los datos de la actividad no son válidos.'
+    )
   }
 
   if (error.response?.status === 404) {
@@ -33,6 +38,45 @@ function getOrganizerErrorMessage(error) {
   }
 
   return getStudentErrorMessage(error)
+}
+
+function extractCurrentSubjects(periods) {
+  if (!Array.isArray(periods)) return []
+
+  // El endpoint del SII proporciona el horario del periodo actual.
+  // Si hubiera varios elementos, utilizamos el primer horario válido.
+  const currentPeriod = periods.find(
+    (item) => item &&
+      Array.isArray(item.horario)
+  )
+
+  if (!currentPeriod) return []
+
+  const subjectsByKey = new Map()
+
+  currentPeriod.horario.forEach((item) => {
+    const name =
+      typeof item?.nombre_materia === 'string'
+        ? item.nombre_materia.trim()
+        : ''
+
+    const code =
+      typeof item?.clave_materia === 'string'
+        ? item.clave_materia.trim()
+        : ''
+
+    if (!name) return
+
+    const key = code || name.toLocaleLowerCase('es-MX')
+
+    if (!subjectsByKey.has(key)) {
+      subjectsByKey.set(key, name)
+    }
+  })
+
+  return [...new Set(subjectsByKey.values())].sort(
+    (a, b) => a.localeCompare(b, 'es-MX')
+  )
 }
 
 export default function Organizador() {
@@ -49,6 +93,10 @@ export default function Organizador() {
   const [activities, setActivities] = useState([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
   const [activitiesError, setActivitiesError] = useState('')
+
+  const [subjects, setSubjects] = useState([])
+  const [subjectsLoading, setSubjectsLoading] = useState(true)
+  const [subjectsError, setSubjectsError] = useState('')
 
   const [filters, setFilters] = useState({})
   const [offset, setOffset] = useState(0)
@@ -69,6 +117,7 @@ export default function Organizador() {
 
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // Cargar el análisis académico.
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -95,7 +144,9 @@ export default function Organizador() {
         }
 
         setSummary(null)
-        setSummaryError(getOrganizerErrorMessage(error))
+        setSummaryError(
+          getOrganizerErrorMessage(error)
+        )
       } finally {
         if (!controller.signal.aborted) {
           setSummaryLoading(false)
@@ -106,8 +157,13 @@ export default function Organizador() {
     loadSummary()
 
     return () => controller.abort()
-  }, [isAuthenticated, invalidateSession, refreshKey])
+  }, [
+    isAuthenticated,
+    invalidateSession,
+    refreshKey,
+  ])
 
+  // Cargar el listado con filtros y paginación.
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -120,7 +176,8 @@ export default function Organizador() {
       try {
         const activeFilters = Object.fromEntries(
           Object.entries(filters).filter(
-            ([, value]) => value !== '' && value != null
+            ([, value]) =>
+              value !== '' && value != null
           )
         )
 
@@ -167,6 +224,60 @@ export default function Organizador() {
     refreshKey,
   ])
 
+  // Cargar las materias del horario institucional.
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const controller = new AbortController()
+
+    async function loadSubjects() {
+      setSubjectsLoading(true)
+      setSubjectsError('')
+
+      try {
+        const response = await getStudentSchedule(
+          controller.signal
+        )
+
+        if (controller.signal.aborted) return
+
+        const currentSubjects =
+          extractCurrentSubjects(response.data)
+
+        setSubjects(currentSubjects)
+
+        if (currentSubjects.length === 0) {
+          setSubjectsError(
+            'No se encontraron materias en el horario actual. Puedes escribir la materia manualmente.'
+          )
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return
+
+        if (error.response?.status === 401) {
+          invalidateSession()
+          return
+        }
+
+        setSubjects([])
+        setSubjectsError(
+          'No fue posible cargar las materias del SII. Puedes escribir la materia manualmente.'
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setSubjectsLoading(false)
+        }
+      }
+    }
+
+    loadSubjects()
+
+    return () => controller.abort()
+  }, [
+    isAuthenticated,
+    invalidateSession,
+  ])
+
   function refreshData() {
     setRefreshKey((current) => current + 1)
   }
@@ -210,7 +321,9 @@ export default function Organizador() {
 
     try {
       if (!session?.csrf_token) {
-        throw new Error('No existe una sesión CSRF válida.')
+        throw new Error(
+          'No existe una sesión CSRF válida.'
+        )
       }
 
       if (editingActivity) {
@@ -244,14 +357,19 @@ export default function Organizador() {
         return
       }
 
-      setActionError(getOrganizerErrorMessage(error))
+      setActionError(
+        getOrganizerErrorMessage(error)
+      )
       throw error
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleStatusChange(activity, newStatus) {
+  async function handleStatusChange(
+    activity,
+    newStatus
+  ) {
     if (busyId !== null) return
 
     setBusyId(activity.id)
@@ -278,7 +396,9 @@ export default function Organizador() {
         return
       }
 
-      setActionError(getOrganizerErrorMessage(error))
+      setActionError(
+        getOrganizerErrorMessage(error)
+      )
     } finally {
       setBusyId(null)
     }
@@ -307,8 +427,13 @@ export default function Organizador() {
         'La actividad se eliminó correctamente.'
       )
 
-      if (activities.length === 1 && offset > 0) {
-        setOffset(Math.max(0, offset - PAGE_SIZE))
+      if (
+        activities.length === 1 &&
+        offset > 0
+      ) {
+        setOffset(
+          Math.max(0, offset - PAGE_SIZE)
+        )
       } else {
         refreshData()
       }
@@ -318,7 +443,9 @@ export default function Organizador() {
         return
       }
 
-      setActionError(getOrganizerErrorMessage(error))
+      setActionError(
+        getOrganizerErrorMessage(error)
+      )
     } finally {
       setBusyId(null)
     }
@@ -333,8 +460,8 @@ export default function Organizador() {
           </h1>
 
           <p className="mt-2 text-slate-500">
-            Administra tus actividades, organiza tus entregas
-            y analiza tu carga de trabajo.
+            Administra tus actividades, organiza
+            tus entregas y analiza tu carga de trabajo.
           </p>
         </header>
 
@@ -357,7 +484,9 @@ export default function Organizador() {
         )}
 
         {summaryLoading ? (
-          <LoadingSpinner message="Analizando carga académica..." />
+          <LoadingSpinner
+            message="Analizando carga académica..."
+          />
         ) : summaryError ? (
           <section
             role="alert"
@@ -387,6 +516,9 @@ export default function Organizador() {
           <ActivityForm
             key={editingActivity?.id ?? 'new'}
             activity={editingActivity}
+            subjects={subjects}
+            subjectsLoading={subjectsLoading}
+            subjectsError={subjectsError}
             onSubmit={handleSaveActivity}
             onCancel={handleCancelForm}
             saving={saving}
