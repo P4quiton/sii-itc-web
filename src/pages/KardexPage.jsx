@@ -8,7 +8,7 @@ import {
 } from '../services/studentService'
 
 export default function KardexPage() {
-  const { token, logout } = useAuth()
+  const { isAuthenticated, invalidateSession } = useAuth()
 
   const [records, setRecords] = useState([])
   const [progress, setProgress] = useState(null)
@@ -16,7 +16,7 @@ export default function KardexPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const controller = new AbortController()
 
@@ -28,7 +28,6 @@ export default function KardexPage() {
 
       try {
         const data = await getStudentKardex(
-          token,
           controller.signal
         )
 
@@ -40,7 +39,7 @@ export default function KardexPage() {
         if (controller.signal.aborted) return
 
         if (err.response?.status === 401) {
-          logout()
+          invalidateSession()
           return
         }
 
@@ -55,7 +54,7 @@ export default function KardexPage() {
     loadKardex()
 
     return () => controller.abort()
-  }, [token, logout])
+  }, [isAuthenticated, invalidateSession])
 
   return (
     <Kardex
