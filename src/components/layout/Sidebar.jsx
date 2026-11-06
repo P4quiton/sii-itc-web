@@ -15,6 +15,7 @@ export default function Sidebar() {
   const navigate = useNavigate()
   const { logout } = useAuth()
 
+  const [menuOpen, setMenuOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState('')
 
@@ -26,6 +27,7 @@ export default function Sidebar() {
 
     try {
       await logout()
+      setMenuOpen(false)
       navigate('/login', { replace: true })
     } catch {
       setLogoutError(
@@ -37,18 +39,35 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col bg-slate-900 p-6 text-white">
-      <h2 className="mb-8 text-2xl font-bold">
-        SII ITC
-      </h2>
+    <aside className="sticky top-0 z-40 w-full shrink-0 bg-slate-900 text-white md:sticky md:top-0 md:flex md:h-screen md:min-h-0 md:w-64 md:flex-col md:overflow-hidden md:p-6">
+      <div className="flex min-h-16 items-center justify-between px-4 md:block md:min-h-0 md:px-0">
+        <h2 className="text-xl font-bold md:mb-8 md:text-2xl">
+          SII ITC
+        </h2>
 
-      <nav className="flex flex-col gap-2">
+        <button
+          type="button"
+          aria-expanded={menuOpen}
+          aria-controls="primary-navigation"
+          aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+          onClick={() => setMenuOpen((open) => !open)}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-600 text-xl hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:hidden"
+        >
+          <span aria-hidden="true">{menuOpen ? '×' : '☰'}</span>
+        </button>
+      </div>
+
+      <nav
+        id="primary-navigation"
+        className={`${menuOpen ? 'flex' : 'hidden'} flex-col gap-1 border-t border-slate-700 bg-slate-900 p-3 md:mt-8 md:flex md:flex-1 md:gap-2 md:overflow-y-auto md:border-0 md:bg-transparent md:p-0`}
+      >
         {menuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={() => setMenuOpen(false)}
             className={({ isActive }) =>
-              `rounded-lg px-4 py-3 transition-colors ${
+              `min-h-11 rounded-lg px-4 py-3 transition-colors ${
                 isActive
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-300 hover:bg-slate-800'
@@ -60,7 +79,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto pt-8">
+      <div className={`${menuOpen ? 'block' : 'hidden'} border-t border-slate-700 bg-slate-900 px-3 pb-4 pt-2 md:mt-auto md:block md:shrink-0 md:border-0 md:px-0 md:pb-0 md:pt-8`}>
         {logoutError && (
           <p
             role="alert"

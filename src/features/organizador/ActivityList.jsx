@@ -79,7 +79,7 @@ function ActivityCard({
   const isCompleted = activity.status === 'completada'
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -221,8 +221,8 @@ export default function ActivityList({
   }
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <section className="min-w-0 space-y-5">
+      <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-xl font-bold text-slate-900">
             Mis actividades
@@ -236,13 +236,13 @@ export default function ActivityList({
         <button
           type="button"
           onClick={onCreate}
-          className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800"
+          className="min-h-11 w-full rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 sm:w-auto"
         >
           + Nueva actividad
         </button>
       </div>
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="min-w-0 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
         <h3 className="mb-4 font-semibold text-slate-800">
           Buscar y filtrar
         </h3>
@@ -359,7 +359,7 @@ export default function ActivityList({
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-start sm:justify-end">
           <button
             type="button"
             onClick={() => onFiltersChange({})}
@@ -378,7 +378,7 @@ export default function ActivityList({
           Cargando actividades...
         </div>
       ) : activities.length === 0 ? (
-        <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm sm:p-10">
           <h3 className="text-lg font-semibold text-slate-900">
             No se encontraron actividades
           </h3>
